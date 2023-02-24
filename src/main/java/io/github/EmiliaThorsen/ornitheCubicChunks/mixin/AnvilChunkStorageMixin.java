@@ -1,6 +1,5 @@
 package io.github.EmiliaThorsen.ornitheCubicChunks.mixin;
 
-import io.github.EmiliaThorsen.ornitheCubicChunks.ornitheCubicChunksMod;
 import net.minecraft.block.Block;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.Entities;
@@ -22,20 +21,20 @@ import java.util.*;
 
 @Mixin(AnvilChunkStorage.class)
 public class AnvilChunkStorageMixin {
-	private static final LinkedList[] ruleSet = new LinkedList[]{
-			new LinkedList<>(Arrays.asList(8 , 13, 4, 16, 4, 12, 3 , 14, 3 , 13, 5, 17, 5, 12, 10)),
-			new LinkedList<>(Arrays.asList(9 , 13, 5, 17, 5, 12, 2 , 15, 2 , 13, 4, 16, 4, 12, 11)),
-			new LinkedList<>(Arrays.asList(10, 12, 6, 16, 6, 13, 1 , 15, 1 , 12, 7, 17, 7, 13, 8 )),
-			new LinkedList<>(Arrays.asList(11, 12, 7, 17, 7, 13, 0 , 14, 0 , 12, 6, 16, 6, 13, 9 )),
-			new LinkedList<>(Arrays.asList(8 , 13, 0, 14, 0, 12, 6 , 16, 6 , 13, 1, 15, 1, 12, 11)),
-			new LinkedList<>(Arrays.asList(9 , 13, 1, 15, 1, 12, 7 , 17, 7 , 13, 0, 14, 0, 12, 10)),
-			new LinkedList<>(Arrays.asList(10, 12, 2, 15, 2, 13, 4 , 16, 4 , 12, 3, 14, 3, 13, 9 )),
-			new LinkedList<>(Arrays.asList(11, 12, 3, 14, 3, 13, 5 , 17, 5 , 12, 2, 15, 2, 13, 8 )),
-			new LinkedList<>(Arrays.asList(0 , 14, 4, 16, 4, 15, 9 , 13, 9 , 14, 7, 17, 7, 15, 2 )),
-			new LinkedList<>(Arrays.asList(1 , 15, 5, 17, 5, 14, 8 , 13, 8 , 15, 6, 16, 6, 14, 3 )),
-			new LinkedList<>(Arrays.asList(6 , 16, 2, 15, 2, 17, 11, 12, 11, 16, 0, 14, 0, 17, 5 )),
-			new LinkedList<>(Arrays.asList(3 , 14, 7, 17, 7, 15, 10, 12, 10, 14, 4, 16, 4, 15, 1 ))
-	};
+	private static final int[][] ruleSet = new int[][]{
+			{10, 12, 5, 17, 5, 13, 3 , 14, 3 , 12, 4, 16, 4, 13, 8 },
+			{11, 12, 4, 16, 4, 13, 2 , 15, 2 , 12, 5, 17, 5, 13, 9 },
+			{8 , 13, 7, 17, 7, 12, 1 , 15, 1 , 13, 6, 16, 6, 12, 10},
+			{9 , 13, 6, 16, 6, 12, 0 , 14, 0 , 13, 7, 17, 7, 12, 11},
+			{11, 12, 1, 15, 1, 13, 6 , 16, 6 , 12, 0, 14, 0, 13, 8 },
+			{10, 12, 0, 14, 0, 13, 7 , 17, 7 , 12, 1, 15, 1, 13, 9 },
+			{9 , 13, 3, 14, 3, 12, 4 , 16, 4 , 13, 2, 15, 2, 12, 10},
+			{8 , 13, 2, 15, 2, 12, 5 , 17, 5 , 13, 3, 14, 3, 12, 11},
+			{2 , 15, 7, 17, 7, 14, 9 , 13, 9 , 15, 4, 16, 4, 14, 0 },
+			{3 , 14, 6, 16, 6, 15, 8 , 13, 8 , 14, 5, 17, 5, 15, 1 },
+			{5 , 17, 0, 14, 0, 16, 11, 12, 11, 17, 2, 15, 2, 16, 6 },
+			{1 , 15, 4, 16, 4, 14, 10, 12, 10, 15, 7, 17, 7, 14, 3 }};
+	private static final int[] directions = new int[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -256, 256, 1, -1, 16, -16};
 
 	/**
 	 * @author EmiliaThorsen
@@ -53,95 +52,59 @@ public class AnvilChunkStorageMixin {
 		nbtCompound.putLong("InhabitedTime", worldChunk.getInhabitedTime());
 
 		WorldChunkSection[] worldChunkSections = worldChunk.getSections();
-		NbtList nbtList = new NbtList();
+		NbtList subChunks = new NbtList();
 		boolean bl = !world.dimension.isDark();
-
-		for (WorldChunkSection worldChunkSection : worldChunkSections) { //loop over all subchunks
+		for (WorldChunkSection worldChunkSection : worldChunkSections) {
 			if (worldChunkSection == null) continue;
 
 			NbtCompound subChunkNbt = new NbtCompound();
-			subChunkNbt.putByte("Y", (byte) (worldChunkSection.getOffsetY() >> 4 & 255));
-			ChunkNibbleStorage chunkNibbleStorage = new ChunkNibbleStorage();
-			ChunkNibbleStorage chunkNibbleStorage2 = null;
+			subChunkNbt.putByte("Y", (byte) (worldChunkSection.getOffsetY() >> 4));
 
+			char[] blocks = worldChunkSection.getBlockData();
 			int blockArrayPos = 0;
-			LinkedList<Integer> ruleCallList = new LinkedList<>();
-			ruleCallList.add(0);
-			LinkedList<Integer> iterationCallList = new LinkedList<>();
-			iterationCallList.add(4);
-			byte[] output = new byte[16 * 16 * 16];
+
+			byte[] output = new byte[4096];
+			byte[] output2 = new byte[4096];
 			int outArrayPos = 0;
 
+			ArrayDeque<Integer> ruleCallList = new ArrayDeque<>();
+			ruleCallList.push(128);
 			while(ruleCallList.size() != 0) {
-				int currentRuleCall = ruleCallList.getFirst();
-				ruleCallList.removeFirst();
-				int iteration = iterationCallList.getFirst();
-				iterationCallList.removeFirst();
-				switch (currentRuleCall){
-					case 12:
-						blockArrayPos -= 256;
-						continue;
-					case 13:
-						blockArrayPos += 256;
-						continue;
-					case 14:
-						blockArrayPos += 1;
-						continue;
-					case 15:
-						blockArrayPos -= 1;
-						continue;
-					case 16:
-						blockArrayPos += 16;
-						continue;
-					case 17:
-						blockArrayPos -= 16;
-						continue;
+				int currentRuleCall = ruleCallList.poll();
+				int rule = currentRuleCall & 31;
+				if(rule > 11){
+					blockArrayPos += directions[rule];
+					continue;
 				}
-				if(iteration == 0) {
-					char block = worldChunkSection.getBlockData()[blockArrayPos];
-					if (block >> 12 != 0) {
-						if (chunkNibbleStorage2 == null) {chunkNibbleStorage2 = new ChunkNibbleStorage();}
-						chunkNibbleStorage2.set(outArrayPos, block >> 12);
-					}
-					output[outArrayPos] = (byte) (block >> 4 & 255);
-					chunkNibbleStorage.set(outArrayPos, block & 15);
+				if (currentRuleCall >> 5 == 0) {
+					char block = blocks[blockArrayPos];
+					output[outArrayPos] = (byte) (block >> 8);
+					output2[outArrayPos] = (byte) (block & 255);
 					outArrayPos += 1;
 					continue;
 				}
-				LinkedList<Integer> merged = new LinkedList<>();
-				merged.addAll(this.ruleSet[currentRuleCall]);
-				merged.addAll(ruleCallList);
-				ruleCallList = merged;
-				for (int element = 0; element < 15; element++) iterationCallList.addFirst(iteration-1);
+				for (int element = 0; element < 15; element++) {
+					ruleCallList.push(ruleSet[rule][element] | ((currentRuleCall & 224) - 32));
+				}
 			}
+
 			subChunkNbt.putByteArray("Blocks", output);
-			subChunkNbt.putByteArray("Data", chunkNibbleStorage.getData());
-			if (chunkNibbleStorage2 != null) {
-				subChunkNbt.putByteArray("Add", chunkNibbleStorage2.getData());
-			}
+			subChunkNbt.putByteArray("Blocks2", output2);
 
 			subChunkNbt.putByteArray("BlockLight", worldChunkSection.getBlockLightStorage().getData());
-			if (bl) {
-				subChunkNbt.putByteArray("SkyLight", worldChunkSection.getSkyLightStorage().getData());
-			} else {
-				subChunkNbt.putByteArray("SkyLight", new byte[worldChunkSection.getBlockLightStorage().getData().length]);
-			}
+			if (bl) subChunkNbt.putByteArray("SkyLight", worldChunkSection.getSkyLightStorage().getData());
 
-			nbtList.add(subChunkNbt);
+			subChunks.add(subChunkNbt);
 		}
 
-		nbtCompound.put("Sections", nbtList);
+		nbtCompound.put("Sections", subChunks);
 		nbtCompound.putByteArray("Biomes", worldChunk.getBiomes());
 		worldChunk.setContainsEntities(false);
 		NbtList nbtList2 = new NbtList();
 
-		Iterator iterator;
 		NbtCompound nbtCompound2;
 		for(int i = 0; i < worldChunk.getEntities().length; ++i) {
-			iterator = worldChunk.getEntities()[i].iterator();
-
-			while(iterator.hasNext()) {
-				Entity entity = (Entity)iterator.next();
+			for (Entity entity : worldChunk.getEntities()[i]) {
 				nbtCompound2 = new NbtCompound();
 				if (entity.writeNbtNoRider(nbtCompound2)) {
 					worldChunk.setContainsEntities(true);
@@ -152,10 +115,8 @@ public class AnvilChunkStorageMixin {
 
 		nbtCompound.put("Entities", nbtList2);
 		NbtList nbtList3 = new NbtList();
-		iterator = worldChunk.getBlockEntities().values().iterator();
 
-		while(iterator.hasNext()) {
-			BlockEntity blockEntity = (BlockEntity)iterator.next();
+		for (BlockEntity blockEntity : worldChunk.getBlockEntities().values()) {
 			nbtCompound2 = new NbtCompound();
 			blockEntity.writeNbt(nbtCompound2);
 			nbtList3.add(nbtCompound2);
@@ -200,59 +161,36 @@ public class AnvilChunkStorageMixin {
 		int k = 16;
 		WorldChunkSection[] worldChunkSections = new WorldChunkSection[k];
 		boolean bl = !world.dimension.isDark();
-
 		int m;
 		for(int l = 0; l < nbtList.size(); ++l) {
 			NbtCompound nbtCompound2 = nbtList.getCompound(l);
 			m = nbtCompound2.getByte("Y");
 			WorldChunkSection worldChunkSection = new WorldChunkSection(m << 4, bl);
-			byte[] blocks = nbtCompound2.getByteArray("Blocks");
-			ChunkNibbleStorage chunkNibbleStorage = new ChunkNibbleStorage(nbtCompound2.getByteArray("Data"));
-			ChunkNibbleStorage chunkNibbleStorage2 = nbtCompound2.isType("Add", 7) ? new ChunkNibbleStorage(nbtCompound2.getByteArray("Add")) : null;
 
+			byte[] blocks = nbtCompound2.getByteArray("Blocks");
+			byte[] blocks2 = nbtCompound2.getByteArray("Blocks2");
 			int blockArrayPos = 0;
-			LinkedList<Integer> ruleCallList = new LinkedList<>();
-			ruleCallList.add(0);
-			LinkedList<Integer> iterationCallList = new LinkedList<>();
-			iterationCallList.add(4);
-			char[] output = new char[blocks.length];
+			char[] output = new char[4096];
 			int outArrayPos = 0;
+
+			ArrayDeque<Integer> ruleCallList = new ArrayDeque<>();
+			ruleCallList.push(128);
+
 			while(ruleCallList.size() != 0) {
-				int currentRuleCall = ruleCallList.getFirst();
-				ruleCallList.removeFirst();
-				int iteration = iterationCallList.getFirst();
-				iterationCallList.removeFirst();
-				switch (currentRuleCall){
-					case 12:
-						blockArrayPos -= 256;
-						continue;
-					case 13:
-						blockArrayPos += 256;
-						continue;
-					case 14:
-						blockArrayPos += 1;
-						continue;
-					case 15:
-						blockArrayPos -= 1;
-						continue;
-					case 16:
-						blockArrayPos += 16;
-						continue;
-					case 17:
-						blockArrayPos -= 16;
-						continue;
+				int currentRuleCall = ruleCallList.poll();
+				int rule = currentRuleCall & 31;
+				if(rule > 11){
+					blockArrayPos += directions[rule];
+					continue;
 				}
-				if(iteration == 0) {
-					int r = chunkNibbleStorage2 != null ? chunkNibbleStorage2.get(outArrayPos) : 0;
-					output[blockArrayPos] = (char)(r << 12 | (blocks[outArrayPos] & 255) << 4 | chunkNibbleStorage.get(outArrayPos));
+				if((currentRuleCall >> 5) == 0) {
+					output[blockArrayPos] = (char) (((blocks[outArrayPos] & 255) << 8) | (blocks2[outArrayPos] & 255));
 					outArrayPos += 1;
 					continue;
 				}
-				LinkedList<Integer> merged = new LinkedList<>();
-				merged.addAll(this.ruleSet[currentRuleCall]);
-				merged.addAll(ruleCallList);
-				ruleCallList = merged;
-				for (int element = 0; element < 15; element++) iterationCallList.addFirst(iteration-1);
+				for (int element = 0; element < 15; element++) {
+					ruleCallList.push(ruleSet[rule][element] | ((currentRuleCall & 224) - 32));
+				}
 			}
 
 			worldChunkSection.setBlockData(output);
@@ -267,9 +205,8 @@ public class AnvilChunkStorageMixin {
 		}
 
 		worldChunk.setSections(worldChunkSections);
-		if (nbtCompound.isType("Biomes", 7)) {
-			worldChunk.setBiomes(nbtCompound.getByteArray("Biomes"));
-		}
+
+		if (nbtCompound.isType("Biomes", 7)) {worldChunk.setBiomes(nbtCompound.getByteArray("Biomes"));}
 
 		NbtList nbtList2 = nbtCompound.getList("Entities", 10);
 		if (nbtList2 != null) {
