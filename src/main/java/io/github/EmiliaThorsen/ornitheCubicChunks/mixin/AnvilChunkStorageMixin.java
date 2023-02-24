@@ -1,5 +1,6 @@
 package io.github.EmiliaThorsen.ornitheCubicChunks.mixin;
 
+import io.github.EmiliaThorsen.ornitheCubicChunks.ornitheCubicChunksMod;
 import net.minecraft.block.Block;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.Entities;
@@ -65,7 +66,12 @@ public class AnvilChunkStorageMixin {
 
 			byte[] output = new byte[4096];
 			byte[] output2 = new byte[4096];
+			byte[] length = new byte[4096];
+			byte[] length2 = new byte[4096];
 			int outArrayPos = 0;
+
+			char prevBlock = blocks[0];
+			int runLength = 0;
 
 			ArrayDeque<Integer> ruleCallList = new ArrayDeque<>();
 			ruleCallList.push(128);
@@ -78,18 +84,27 @@ public class AnvilChunkStorageMixin {
 				}
 				if (currentRuleCall >> 5 == 0) {
 					char block = blocks[blockArrayPos];
-					output[outArrayPos] = (byte) (block >> 8);
-					output2[outArrayPos] = (byte) (block & 255);
-					outArrayPos += 1;
+					if(prevBlock == block) {
+						runLength += 1;
+					} else {
+						output[outArrayPos] = (byte) ((prevBlock >> 8) & 255);
+						output2[outArrayPos] = (byte) (prevBlock & 255);
+						length[outArrayPos] = (byte) ((runLength >> 8) & 255);
+						length2[outArrayPos] = (byte) (runLength & 255);
+						outArrayPos += 1;
+						runLength = 1;
+						prevBlock = block;
+					}
 					continue;
 				}
 				for (int element = 0; element < 15; element++) {
 					ruleCallList.push(ruleSet[rule][element] | ((currentRuleCall & 224) - 32));
 				}
 			}
-
 			subChunkNbt.putByteArray("Blocks", output);
 			subChunkNbt.putByteArray("Blocks2", output2);
+			subChunkNbt.putByteArray("runLength", length);
+			subChunkNbt.putByteArray("runLength2", length2);
 
 			subChunkNbt.putByteArray("BlockLight", worldChunkSection.getBlockLightStorage().getData());
 			if (bl) subChunkNbt.putByteArray("SkyLight", worldChunkSection.getSkyLightStorage().getData());
@@ -169,12 +184,17 @@ public class AnvilChunkStorageMixin {
 
 			byte[] blocks = nbtCompound2.getByteArray("Blocks");
 			byte[] blocks2 = nbtCompound2.getByteArray("Blocks2");
+			byte[] runLength = nbtCompound2.getByteArray("runLength");
+			byte[] runLength2 = nbtCompound2.getByteArray("runLength2");
 			int blockArrayPos = 0;
 			char[] output = new char[4096];
 			int outArrayPos = 0;
 
 			ArrayDeque<Integer> ruleCallList = new ArrayDeque<>();
 			ruleCallList.push(128);
+
+			int currentRunLength = 0;
+			char currentBlock = 0;
 
 			while(ruleCallList.size() != 0) {
 				int currentRuleCall = ruleCallList.poll();
@@ -184,8 +204,13 @@ public class AnvilChunkStorageMixin {
 					continue;
 				}
 				if((currentRuleCall >> 5) == 0) {
-					output[blockArrayPos] = (char) (((blocks[outArrayPos] & 255) << 8) | (blocks2[outArrayPos] & 255));
-					outArrayPos += 1;
+					if(currentRunLength == 0) {
+						currentBlock = (char) ((blocks[outArrayPos] & 255 << 8) | blocks2[outArrayPos]);
+						currentRunLength = (runLength[outArrayPos] & 0x7F << 8) | runLength2[outArrayPos];
+						outArrayPos += 1;
+					}
+					currentRunLength -= 1;
+					output[blockArrayPos] = currentBlock;
 					continue;
 				}
 				for (int element = 0; element < 15; element++) {
