@@ -1,6 +1,7 @@
 package io.github.EmiliaThorsen.ornitheCubicChunks.mixin;
 
 import io.github.EmiliaThorsen.ornitheCubicChunks.ornitheCubicChunksMod;
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import net.minecraft.block.Block;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.Entities;
@@ -68,13 +69,22 @@ public class AnvilChunkStorageMixin {
 			byte[] output2 = new byte[4096];
 			byte[] length = new byte[4096];
 			byte[] length2 = new byte[4096];
-			int outArrayPos = 0;
-
 			char prevBlock = blocks[0];
 			int runLength = 0;
 
+			Int2IntOpenHashMap pallete = new Int2IntOpenHashMap();
+			byte[] palleteArray = new byte[4096];
+			byte[] palleteArray2 = new byte[4096];
+			palleteArray[0] = (byte) ((prevBlock >> 8) & 255);
+			palleteArray2[0] = (byte) (prevBlock & 255);
+			pallete.put(prevBlock, 0);
+
+			int palleteSize = 1;
+
+			int outArrayPos = 0;
+
 			ArrayDeque<Integer> ruleCallList = new ArrayDeque<>();
-			ruleCallList.push(128);
+			ruleCallList.push(132);
 			while(ruleCallList.size() != 0) {
 				int currentRuleCall = ruleCallList.poll();
 				int rule = currentRuleCall & 31;
@@ -87,10 +97,17 @@ public class AnvilChunkStorageMixin {
 					if(prevBlock == block) {
 						runLength += 1;
 					} else {
-						output[outArrayPos] = (byte) ((prevBlock >> 8) & 255);
-						output2[outArrayPos] = (byte) (prevBlock & 255);
+						int palletePos = pallete.get(prevBlock);
+						output[outArrayPos] = (byte) ((palletePos >> 8) & 255);
+						output2[outArrayPos] = (byte) (palletePos & 255);
 						length[outArrayPos] = (byte) ((runLength >> 8) & 255);
 						length2[outArrayPos] = (byte) (runLength & 255);
+						if(!(pallete.containsKey(block))){
+							palleteArray[palleteSize] = (byte) ((block >> 8) & 255);
+							palleteArray2[palleteSize] = (byte) (block & 255);
+							pallete.put(block, palleteSize);
+							palleteSize += 1;
+						}
 						outArrayPos += 1;
 						runLength = 1;
 						prevBlock = block;
@@ -101,10 +118,18 @@ public class AnvilChunkStorageMixin {
 					ruleCallList.push(ruleSet[rule][element] | ((currentRuleCall & 224) - 32));
 				}
 			}
+			int palletePos = pallete.get(prevBlock);
+			output[outArrayPos] = (byte) ((palletePos >> 8) & 255);
+			output2[outArrayPos] = (byte) (palletePos & 255);
+			length[outArrayPos] = (byte) ((runLength >> 8) & 255);
+			length2[outArrayPos] = (byte) (runLength & 255);
+
 			subChunkNbt.putByteArray("Blocks", output);
 			subChunkNbt.putByteArray("Blocks2", output2);
 			subChunkNbt.putByteArray("runLength", length);
 			subChunkNbt.putByteArray("runLength2", length2);
+			subChunkNbt.putByteArray("palleteArray", palleteArray);
+			subChunkNbt.putByteArray("palleteArray2", palleteArray2);
 
 			subChunkNbt.putByteArray("BlockLight", worldChunkSection.getBlockLightStorage().getData());
 			if (bl) subChunkNbt.putByteArray("SkyLight", worldChunkSection.getSkyLightStorage().getData());
@@ -186,12 +211,14 @@ public class AnvilChunkStorageMixin {
 			byte[] blocks2 = nbtCompound2.getByteArray("Blocks2");
 			byte[] runLength = nbtCompound2.getByteArray("runLength");
 			byte[] runLength2 = nbtCompound2.getByteArray("runLength2");
+			byte[] palleteArray = nbtCompound2.getByteArray("palleteArray");
+			byte[] palleteArray2 = nbtCompound2.getByteArray("palleteArray2");
 			int blockArrayPos = 0;
 			char[] output = new char[4096];
 			int outArrayPos = 0;
 
 			ArrayDeque<Integer> ruleCallList = new ArrayDeque<>();
-			ruleCallList.push(128);
+			ruleCallList.push(132);
 
 			int currentRunLength = 0;
 			char currentBlock = 0;
@@ -205,8 +232,9 @@ public class AnvilChunkStorageMixin {
 				}
 				if((currentRuleCall >> 5) == 0) {
 					if(currentRunLength == 0) {
-						currentBlock = (char) ((blocks[outArrayPos] & 255 << 8) | blocks2[outArrayPos]);
-						currentRunLength = (runLength[outArrayPos] & 0x7F << 8) | runLength2[outArrayPos];
+						int palletePos = (char) (((blocks[outArrayPos] & 0x7F) << 8) | (blocks2[outArrayPos] & 255));
+						currentBlock = (char) (((palleteArray[palletePos] & 255) << 8) | (palleteArray2[palletePos] & 255));
+						currentRunLength = (((runLength[outArrayPos] & 0x7F) << 8) | (runLength2[outArrayPos] & 255));
 						outArrayPos += 1;
 					}
 					currentRunLength -= 1;
