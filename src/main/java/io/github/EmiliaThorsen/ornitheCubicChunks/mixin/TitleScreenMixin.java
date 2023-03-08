@@ -15,5 +15,6 @@ public class TitleScreenMixin {
 	@Inject(method = "init", at = @At("TAIL"))
 	public void ornitheCubicChunksMod$onInit(CallbackInfo ci) {
 		ornitheCubicChunksMod.LOGGER.info("ornithe cubic chunks mod is loaded!");
+
 	}
 }
