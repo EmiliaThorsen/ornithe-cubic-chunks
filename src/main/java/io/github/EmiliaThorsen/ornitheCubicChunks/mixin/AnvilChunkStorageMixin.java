@@ -23,21 +23,6 @@ import java.util.*;
 
 @Mixin(AnvilChunkStorage.class)
 public abstract class AnvilChunkStorageMixin {
-	private static final int[][] ruleSet = new int[][]{
-			{10, 12, 5, 17, 5, 13, 3 , 14, 3 , 12, 4, 16, 4, 13, 8 },
-			{11, 12, 4, 16, 4, 13, 2 , 15, 2 , 12, 5, 17, 5, 13, 9 },
-			{8 , 13, 7, 17, 7, 12, 1 , 15, 1 , 13, 6, 16, 6, 12, 10},
-			{9 , 13, 6, 16, 6, 12, 0 , 14, 0 , 13, 7, 17, 7, 12, 11},
-			{11, 12, 1, 15, 1, 13, 6 , 16, 6 , 12, 0, 14, 0, 13, 8 },
-			{10, 12, 0, 14, 0, 13, 7 , 17, 7 , 12, 1, 15, 1, 13, 9 },
-			{9 , 13, 3, 14, 3, 12, 4 , 16, 4 , 13, 2, 15, 2, 12, 10},
-			{8 , 13, 2, 15, 2, 12, 5 , 17, 5 , 13, 3, 14, 3, 12, 11},
-			{2 , 15, 7, 17, 7, 14, 9 , 13, 9 , 15, 4, 16, 4, 14, 0 },
-			{3 , 14, 6, 16, 6, 15, 8 , 13, 8 , 14, 5, 17, 5, 15, 1 },
-			{5 , 17, 0, 14, 0, 16, 11, 12, 11, 17, 2, 15, 2, 16, 6 },
-			{1 , 15, 4, 16, 4, 14, 10, 12, 10, 15, 7, 17, 7, 14, 3 }};
-	private static final int[] directions = new int[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -256, 256, 1, -1, 16, -16};
-
 	/**
 	 * @author EmiliaThorsen
 	 * @reason kinda self-explanatory considering the mod
@@ -63,96 +48,91 @@ public abstract class AnvilChunkStorageMixin {
 			subChunkNbt.putByte("Y", (byte) (worldChunkSection.getOffsetY() >> 4));
 
 			char[] blocks = worldChunkSection.getBlockData();
-			int blockArrayPos = 0;
 
 			char prevBlock = blocks[0];
 			int runLength = 0;
 
+			Int2IntOpenHashMap pallete = new Int2IntOpenHashMap();
+			int palleteSize = 0;
+			int palleteNibbleSize = 1;
+
 			byte[] outNibbleArray = new byte[8192];
 			int outNibblePos = 0;
 
-			Int2IntOpenHashMap pallete = new Int2IntOpenHashMap();
-			outNibbleArray[outNibblePos] = 0;
-			outNibbleArray[outNibblePos + 1] = (byte) (((prevBlock) >> 12) & 15);
-			outNibbleArray[outNibblePos + 2] = (byte) (((prevBlock) >> 8) & 15);
-			outNibbleArray[outNibblePos + 3] = (byte) (((prevBlock) >> 4) & 15);
-			outNibbleArray[outNibblePos + 4] = (byte) ((prevBlock) & 15);
-			outNibblePos += 5;
-			pallete.put(prevBlock, 0);
-			int palleteSize = 1;
-			int palleteNibbleSize = 1;
-
-			ArrayDeque<Integer> ruleCallList = new ArrayDeque<>();
-			ruleCallList.push(132);
-			while(ruleCallList.size() != 0) {
-				int currentRuleCall = ruleCallList.poll();
-				int rule = currentRuleCall & 31;
-				if(rule > 11){
-					blockArrayPos += directions[rule];
-					continue;
-				}
-				if (currentRuleCall >> 5 == 0) {
-					char block = blocks[blockArrayPos];
-					if(prevBlock == block) {
-						runLength += 1;
+			for (int pos = 0; pos < 4096; pos++) {
+				if (prevBlock != blocks[pos]) {
+					int palletePos;
+					if (!(pallete.containsKey(prevBlock))) {
+						outNibbleArray[outNibblePos] = 0;
+						outNibbleArray[outNibblePos + 1] = (byte) (((prevBlock) >> 12) & 15);
+						outNibbleArray[outNibblePos + 2] = (byte) (((prevBlock) >> 8) & 15);
+						outNibbleArray[outNibblePos + 3] = (byte) (((prevBlock) >> 4) & 15);
+						outNibbleArray[outNibblePos + 4] = (byte) ((prevBlock) & 15);
+						outNibblePos += 5;
+						pallete.put(prevBlock, palleteSize);
+						palletePos = palleteSize;
+						palleteSize += 1;
+						if (palleteSize > Math.pow(16, palleteNibbleSize)) palleteNibbleSize += 1;
 					} else {
-						if(runLength < 13) {
-							outNibbleArray[outNibblePos] = (byte) (runLength & 15);
-							outNibblePos += 1;
-						} else if(runLength < 29) {
-							outNibbleArray[outNibblePos] = 13;
-							outNibbleArray[outNibblePos + 1] = (byte) ((runLength - 13) & 15);
-							outNibblePos += 2;
-						} else if(runLength < 285) {
-							outNibbleArray[outNibblePos] = 14;
-							outNibbleArray[outNibblePos + 1] = (byte) (((runLength - 29) >> 4) & 15);
-							outNibbleArray[outNibblePos + 2] = (byte) ((runLength - 29) & 15);
-							outNibblePos += 3;
-						} else {
-							outNibbleArray[outNibblePos] = 15;
-							outNibbleArray[outNibblePos + 1] = (byte) (((runLength - 285) >> 8) & 15);
-							outNibbleArray[outNibblePos + 2] = (byte) (((runLength - 285) >> 4) & 15);
-							outNibbleArray[outNibblePos + 3] = (byte) ((runLength - 285) & 15);
-							outNibblePos += 4;
-						}
-						int palletePos = pallete.get(prevBlock);
-						if (palleteNibbleSize == 1) {
+						palletePos = pallete.get(prevBlock);
+					}
+					if (runLength < 13) {
+						outNibbleArray[outNibblePos] = (byte) (runLength & 15);
+						outNibblePos += 1;
+					} else if (runLength < 29) {
+						outNibbleArray[outNibblePos] = 13;
+						outNibbleArray[outNibblePos + 1] = (byte) ((runLength - 13) & 15);
+						outNibblePos += 2;
+					} else if (runLength < 285) {
+						outNibbleArray[outNibblePos] = 14;
+						outNibbleArray[outNibblePos + 1] = (byte) (((runLength - 29) >> 4) & 15);
+						outNibbleArray[outNibblePos + 2] = (byte) ((runLength - 29) & 15);
+						outNibblePos += 3;
+					} else {
+						outNibbleArray[outNibblePos] = 15;
+						outNibbleArray[outNibblePos + 1] = (byte) (((runLength - 285) >> 8) & 15);
+						outNibbleArray[outNibblePos + 2] = (byte) (((runLength - 285) >> 4) & 15);
+						outNibbleArray[outNibblePos + 3] = (byte) ((runLength - 285) & 15);
+						outNibblePos += 4;
+					}
+					switch (palleteNibbleSize) {
+						case 1:
 							outNibbleArray[outNibblePos] = (byte) (palletePos & 15);
 							outNibblePos += 1;
-						}
-						if (palleteNibbleSize == 2) {
+							break;
+						case 2:
 							outNibbleArray[outNibblePos] = (byte) (((palletePos) >> 4) & 15);
 							outNibbleArray[outNibblePos + 1] = (byte) ((palletePos) & 15);
 							outNibblePos += 2;
-						}
-						if (palleteNibbleSize == 3) {
+							break;
+						case 3:
 							outNibbleArray[outNibblePos] = (byte) (((palletePos) >> 8) & 15);
 							outNibbleArray[outNibblePos + 1] = (byte) (((palletePos) >> 4) & 15);
 							outNibbleArray[outNibblePos + 2] = (byte) ((palletePos) & 15);
 							outNibblePos += 3;
-						}
-
-						runLength = 1;
-						prevBlock = block;
-						if(!(pallete.containsKey(prevBlock))){
-							outNibbleArray[outNibblePos] = 0;
-							outNibbleArray[outNibblePos + 1] = (byte) (((prevBlock) >> 12) & 15);
-							outNibbleArray[outNibblePos + 2] = (byte) (((prevBlock) >> 8) & 15);
-							outNibbleArray[outNibblePos + 3] = (byte) (((prevBlock) >> 4) & 15);
-							outNibbleArray[outNibblePos + 4] = (byte) ((prevBlock) & 15);
-							outNibblePos += 5;
-							pallete.put(prevBlock, palleteSize);
-							palleteSize += 1;
-							if(palleteSize > Math.pow(16, palleteNibbleSize)) palleteNibbleSize += 1;
-						}
+							break;
 					}
-					continue;
-				}
-				for (int element = 0; element < 15; element++) {
-					ruleCallList.push(ruleSet[rule][element] | ((currentRuleCall & 224) - 32));
+					runLength = 1;
+					prevBlock = blocks[pos];
+				} else {
+					runLength += 1;
 				}
 			}
-
+			int palletePos;
+			if (!(pallete.containsKey(prevBlock))) {
+				outNibbleArray[outNibblePos] = 0;
+				outNibbleArray[outNibblePos + 1] = (byte) (((prevBlock) >> 12) & 15);
+				outNibbleArray[outNibblePos + 2] = (byte) (((prevBlock) >> 8) & 15);
+				outNibbleArray[outNibblePos + 3] = (byte) (((prevBlock) >> 4) & 15);
+				outNibbleArray[outNibblePos + 4] = (byte) ((prevBlock) & 15);
+				outNibblePos += 5;
+				pallete.put(prevBlock, palleteSize);
+				palletePos = palleteSize;
+				palleteSize += 1;
+				if (palleteSize > Math.pow(16, palleteNibbleSize)) palleteNibbleSize += 1;
+			} else {
+				palletePos = pallete.get(prevBlock);
+			}
 			if(runLength < 13) {
 				outNibbleArray[outNibblePos] = (byte) (runLength & 15);
 				outNibblePos += 1;
@@ -172,20 +152,22 @@ public abstract class AnvilChunkStorageMixin {
 				outNibbleArray[outNibblePos + 3] = (byte) ((runLength - 285) & 15);
 				outNibblePos += 4;
 			}
-			int palletePos = pallete.get(prevBlock);
-			if (palleteNibbleSize == 1) {
-				outNibbleArray[outNibblePos] = (byte) (palletePos & 15);
-				outNibblePos += 1;
-			}
-			if (palleteNibbleSize == 2) {
-				outNibbleArray[outNibblePos] = (byte) (((palletePos) >> 4) & 15);
-				outNibbleArray[outNibblePos + 1] = (byte) ((palletePos) & 15);
-				outNibblePos += 2;
-			}
-			if (palleteNibbleSize == 3) {
-				outNibbleArray[outNibblePos] = (byte) (((palletePos) >> 8) & 15);
-				outNibbleArray[outNibblePos + 1] = (byte) (((palletePos) >> 4) & 15);
-				outNibbleArray[outNibblePos + 2] = (byte) ((palletePos) & 15);
+			switch (palleteNibbleSize) {
+				case 1:
+					outNibbleArray[outNibblePos] = (byte) (palletePos & 15);
+					outNibblePos += 1;
+					break;
+				case 2:
+					outNibbleArray[outNibblePos] = (byte) (((palletePos) >> 4) & 15);
+					outNibbleArray[outNibblePos + 1] = (byte) ((palletePos) & 15);
+					outNibblePos += 2;
+					break;
+				case 3:
+					outNibbleArray[outNibblePos] = (byte) (((palletePos) >> 8) & 15);
+					outNibbleArray[outNibblePos + 1] = (byte) (((palletePos) >> 4) & 15);
+					outNibbleArray[outNibblePos + 2] = (byte) ((palletePos) & 15);
+					outNibblePos += 3;
+					break;
 			}
 
 			byte[] output = new byte[1 + (outNibblePos >> 1)];
@@ -194,7 +176,6 @@ public abstract class AnvilChunkStorageMixin {
 				output[outputPos] = (byte) ((outNibbleArray[nibble] << 4) + (outNibbleArray[nibble + 1]));
 				nibble += 2;
 			}
-
 
 			subChunkNbt.putByteArray("nibbles", output);
 
@@ -277,7 +258,7 @@ public abstract class AnvilChunkStorageMixin {
 			byte[] input = nbtCompound2.getByteArray("nibbles");
 			byte[] nibbles = new byte[input.length << 2];
 			int nibblePos = 0;
-			for(byte nibble : input) {
+			for (byte nibble : input) {
 				nibbles[nibblePos] = (byte) ((nibble >> 4) & 15);
 				nibbles[nibblePos + 1] = (byte) (nibble & 15);
 				nibblePos += 2;
@@ -288,64 +269,50 @@ public abstract class AnvilChunkStorageMixin {
 			int palleteNibbleSize = 1;
 			ArrayList<Character> pallete = new ArrayList<>();
 
-			int blockArrayPos = 0;
 			char[] output = new char[4096];
-
-			ArrayDeque<Integer> ruleCallList = new ArrayDeque<>();
-			ruleCallList.push(132);
 
 			int currentRunLength = 0;
 			char currentBlock = 0;
 
-			while(ruleCallList.size() != 0) {
-				int currentRuleCall = ruleCallList.poll();
-				int rule = currentRuleCall & 31;
-				if(rule > 11){
-					blockArrayPos += directions[rule];
-					continue;
-				}
-				if((currentRuleCall >> 5) == 0) {
-					if(currentRunLength == 0) {
-						if(nibbles[currentNibble] == 0) {
-							pallete.add((char)((nibbles[currentNibble + 1] << 12) + (nibbles[currentNibble + 2] << 8) + (nibbles[currentNibble + 3] << 4) + nibbles[currentNibble + 4]));
-							currentNibble += 5;
-							palleteSize += 1;
-							if(palleteSize > (Math.pow(16, palleteNibbleSize))) palleteNibbleSize += 1;
-						}
-						if(nibbles[currentNibble] < 13) {
-							currentRunLength = nibbles[currentNibble];
-							currentNibble += 1;
-						} else if(nibbles[currentNibble] == 13) {
-							currentRunLength = (nibbles[currentNibble + 1] + 13);
-							currentNibble += 2;
-						} else if(nibbles[currentNibble] == 14) {
-							currentRunLength = ((nibbles[currentNibble + 1] << 4) + nibbles[currentNibble + 2] + 29);
-							currentNibble += 3;
-						} else {
-							currentRunLength = ((nibbles[currentNibble + 1] << 8) + (nibbles[currentNibble + 2] << 4) + nibbles[currentNibble + 3] + 285);
-							currentNibble += 4;
-						}
-						if(palleteNibbleSize == 1) {
+			for(int blockArrayPos = 0; blockArrayPos < 4096; blockArrayPos++) {
+				if (currentRunLength == 0) {
+					if (nibbles[currentNibble] == 0) {
+						pallete.add((char) ((nibbles[currentNibble + 1] << 12) + (nibbles[currentNibble + 2] << 8) + (nibbles[currentNibble + 3] << 4) + nibbles[currentNibble + 4]));
+						currentNibble += 5;
+						palleteSize += 1;
+						if (palleteSize > (Math.pow(16, palleteNibbleSize))) palleteNibbleSize += 1;
+					}
+					if (nibbles[currentNibble] < 13) {
+						currentRunLength = nibbles[currentNibble];
+						currentNibble += 1;
+					} else if (nibbles[currentNibble] == 13) {
+						currentRunLength = (nibbles[currentNibble + 1] + 13);
+						currentNibble += 2;
+					} else if (nibbles[currentNibble] == 14) {
+						currentRunLength = ((nibbles[currentNibble + 1] << 4) + nibbles[currentNibble + 2] + 29);
+						currentNibble += 3;
+					} else {
+						currentRunLength = ((nibbles[currentNibble + 1] << 8) + (nibbles[currentNibble + 2] << 4) + nibbles[currentNibble + 3] + 285);
+						currentNibble += 4;
+					}
+					switch (palleteNibbleSize) {
+						case 1:
 							currentBlock = pallete.get(nibbles[currentNibble]);
 							currentNibble += 1;
-						} else if(palleteNibbleSize == 2) {
+							break;
+						case 2:
 							currentBlock = pallete.get((nibbles[currentNibble] << 4) + nibbles[currentNibble + 1]);
 							currentNibble += 2;
-						} else {
+							break;
+						case 3:
 							currentBlock = pallete.get((nibbles[currentNibble] << 8) + (nibbles[currentNibble + 1] << 4) + nibbles[currentNibble + 2]);
 							currentNibble += 3;
-						}
-
+							break;
 					}
-					currentRunLength -= 1;
-					output[blockArrayPos] = currentBlock;
-					continue;
 				}
-				for (int element = 0; element < 15; element++) {
-					ruleCallList.push(ruleSet[rule][element] | ((currentRuleCall & 224) - 32));
-				}
+				currentRunLength -= 1;
+				output[blockArrayPos] = currentBlock;
 			}
-
 			worldChunkSection.setBlockData(output);
 
 			worldChunkSection.setBlockLightStorage(new ChunkNibbleStorage(nbtCompound2.getByteArray("BlockLight")));
