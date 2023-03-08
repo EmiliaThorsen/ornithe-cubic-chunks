@@ -1,6 +1,5 @@
 package io.github.EmiliaThorsen.ornitheCubicChunks.mixin;
 
-import io.github.EmiliaThorsen.ornitheCubicChunks.ornitheCubicChunksMod;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import net.minecraft.block.Block;
 import net.minecraft.block.entity.BlockEntity;
@@ -24,9 +23,6 @@ import java.util.*;
 
 @Mixin(AnvilChunkStorage.class)
 public abstract class AnvilChunkStorageMixin {
-	@Shadow
-	public abstract boolean run();
-
 	private static final int[][] ruleSet = new int[][]{
 			{10, 12, 5, 17, 5, 13, 3 , 14, 3 , 12, 4, 16, 4, 13, 8 },
 			{11, 12, 4, 16, 4, 13, 2 , 15, 2 , 12, 5, 17, 5, 13, 9 },
@@ -72,7 +68,7 @@ public abstract class AnvilChunkStorageMixin {
 			char prevBlock = blocks[0];
 			int runLength = 0;
 
-			byte[] outNibbleArray = new byte[4096];
+			byte[] outNibbleArray = new byte[8192];
 			int outNibblePos = 0;
 
 			Int2IntOpenHashMap pallete = new Int2IntOpenHashMap();
@@ -190,9 +186,17 @@ public abstract class AnvilChunkStorageMixin {
 				outNibbleArray[outNibblePos] = (byte) (((palletePos) >> 8) & 15);
 				outNibbleArray[outNibblePos + 1] = (byte) (((palletePos) >> 4) & 15);
 				outNibbleArray[outNibblePos + 2] = (byte) ((palletePos) & 15);
-				outNibblePos += 3;
 			}
-			subChunkNbt.putByteArray("nibbles", outNibbleArray);
+
+			byte[] output = new byte[1 + (outNibblePos >> 1)];
+			int nibble = 0;
+			for(int outputPos = 0; outputPos < (1 + (outNibblePos >> 1)); outputPos++){
+				output[outputPos] = (byte) ((outNibbleArray[nibble] << 4) + (outNibbleArray[nibble + 1]));
+				nibble += 2;
+			}
+
+
+			subChunkNbt.putByteArray("nibbles", output);
 
 			subChunkNbt.putByteArray("BlockLight", worldChunkSection.getBlockLightStorage().getData());
 			if (bl) subChunkNbt.putByteArray("SkyLight", worldChunkSection.getSkyLightStorage().getData());
@@ -270,7 +274,15 @@ public abstract class AnvilChunkStorageMixin {
 			m = nbtCompound2.getByte("Y");
 			WorldChunkSection worldChunkSection = new WorldChunkSection(m << 4, bl);
 
-			byte[] nibbles = nbtCompound2.getByteArray("nibbles");
+			byte[] input = nbtCompound2.getByteArray("nibbles");
+			byte[] nibbles = new byte[input.length << 2];
+			int nibblePos = 0;
+			for(byte nibble : input) {
+				nibbles[nibblePos] = (byte) ((nibble >> 4) & 15);
+				nibbles[nibblePos + 1] = (byte) (nibble & 15);
+				nibblePos += 2;
+			}
+
 			int currentNibble = 0;
 			int palleteSize = 0;
 			int palleteNibbleSize = 1;
