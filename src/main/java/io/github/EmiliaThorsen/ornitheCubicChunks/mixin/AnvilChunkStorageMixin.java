@@ -23,6 +23,12 @@ import java.util.*;
 
 @Mixin(AnvilChunkStorage.class)
 public abstract class AnvilChunkStorageMixin {
+	@Shadow
+	public abstract boolean run();
+
+	private static final int[] offSets = {0, 13, 29, 285};
+	private static final int[] pow16 = {0, 16, 256, 4096};
+
 	/**
 	 * @author EmiliaThorsen
 	 * @reason kinda self-explanatory considering the mod
@@ -59,9 +65,11 @@ public abstract class AnvilChunkStorageMixin {
 			byte[] outNibbleArray = new byte[8192];
 			int outNibblePos = 0;
 
+			int palletePos;
+			int outNibblePosOffset;
+
 			for (int pos = 0; pos < 4096; pos++) {
 				if (prevBlock != blocks[pos]) {
-					int palletePos;
 					if (!(pallete.containsKey(prevBlock))) {
 						outNibbleArray[outNibblePos] = 0;
 						outNibbleArray[outNibblePos + 1] = (byte) (((prevBlock) >> 12) & 15);
@@ -72,53 +80,28 @@ public abstract class AnvilChunkStorageMixin {
 						pallete.put(prevBlock, palleteSize);
 						palletePos = palleteSize;
 						palleteSize += 1;
-						if (palleteSize > Math.pow(16, palleteNibbleSize)) palleteNibbleSize += 1;
+						palleteNibbleSize += (palleteSize > pow16[palleteNibbleSize])?1:0;
 					} else {
 						palletePos = pallete.get(prevBlock);
 					}
-					if (runLength < 13) {
-						outNibbleArray[outNibblePos] = (byte) (runLength & 15);
-						outNibblePos += 1;
-					} else if (runLength < 29) {
-						outNibbleArray[outNibblePos] = 13;
-						outNibbleArray[outNibblePos + 1] = (byte) ((runLength - 13) & 15);
-						outNibblePos += 2;
-					} else if (runLength < 285) {
-						outNibbleArray[outNibblePos] = 14;
-						outNibbleArray[outNibblePos + 1] = (byte) (((runLength - 29) >> 4) & 15);
-						outNibbleArray[outNibblePos + 2] = (byte) ((runLength - 29) & 15);
-						outNibblePos += 3;
-					} else {
-						outNibbleArray[outNibblePos] = 15;
-						outNibbleArray[outNibblePos + 1] = (byte) (((runLength - 285) >> 8) & 15);
-						outNibbleArray[outNibblePos + 2] = (byte) (((runLength - 285) >> 4) & 15);
-						outNibbleArray[outNibblePos + 3] = (byte) ((runLength - 285) & 15);
-						outNibblePos += 4;
-					}
-					switch (palleteNibbleSize) {
-						case 1:
-							outNibbleArray[outNibblePos] = (byte) (palletePos & 15);
-							outNibblePos += 1;
-							break;
-						case 2:
-							outNibbleArray[outNibblePos] = (byte) (((palletePos) >> 4) & 15);
-							outNibbleArray[outNibblePos + 1] = (byte) ((palletePos) & 15);
-							outNibblePos += 2;
-							break;
-						case 3:
-							outNibbleArray[outNibblePos] = (byte) (((palletePos) >> 8) & 15);
-							outNibbleArray[outNibblePos + 1] = (byte) (((palletePos) >> 4) & 15);
-							outNibbleArray[outNibblePos + 2] = (byte) ((palletePos) & 15);
-							outNibblePos += 3;
-							break;
-					}
+					outNibblePosOffset = ((runLength > 12)?1:0) + ((runLength > 28)?1:0) + ((runLength > 285)?1:0);
+					outNibbleArray[outNibblePos] = (byte) (((runLength > 12)?12:(runLength & 15)) + outNibblePosOffset);
+					runLength -= offSets[outNibblePosOffset];
+					outNibbleArray[outNibblePos + 1] = (byte) ((runLength) & 15);
+					outNibbleArray[outNibblePos + 2] = (byte) (((runLength) >> 4) & 15);
+					outNibbleArray[outNibblePos + 3] = (byte) (((runLength) >> 8) & 15);
+					outNibblePos += outNibblePosOffset + 1;
+					outNibbleArray[outNibblePos] = (byte) (palletePos & 15);
+					outNibbleArray[outNibblePos + 1] = (byte) (((palletePos) >> 4) & 15);
+					outNibbleArray[outNibblePos + 2] = (byte) (((palletePos) >> 8) & 15);
+					outNibblePos += palleteNibbleSize;
+
 					runLength = 1;
 					prevBlock = blocks[pos];
-				} else {
-					runLength += 1;
+					continue;
 				}
+				runLength += 1;
 			}
-			int palletePos;
 			if (!(pallete.containsKey(prevBlock))) {
 				outNibbleArray[outNibblePos] = 0;
 				outNibbleArray[outNibblePos + 1] = (byte) (((prevBlock) >> 12) & 15);
@@ -129,46 +112,21 @@ public abstract class AnvilChunkStorageMixin {
 				pallete.put(prevBlock, palleteSize);
 				palletePos = palleteSize;
 				palleteSize += 1;
-				if (palleteSize > Math.pow(16, palleteNibbleSize)) palleteNibbleSize += 1;
+				palleteNibbleSize += (palleteSize > pow16[palleteNibbleSize])?1:0;
 			} else {
 				palletePos = pallete.get(prevBlock);
 			}
-			if(runLength < 13) {
-				outNibbleArray[outNibblePos] = (byte) (runLength & 15);
-				outNibblePos += 1;
-			} else if(runLength < 29) {
-				outNibbleArray[outNibblePos] = 13;
-				outNibbleArray[outNibblePos + 1] = (byte) ((runLength - 13) & 15);
-				outNibblePos += 2;
-			} else if(runLength < 285) {
-				outNibbleArray[outNibblePos] = 14;
-				outNibbleArray[outNibblePos + 1] = (byte) (((runLength - 29) >> 4) & 15);
-				outNibbleArray[outNibblePos + 2] = (byte) ((runLength - 29) & 15);
-				outNibblePos += 3;
-			} else {
-				outNibbleArray[outNibblePos] = 15;
-				outNibbleArray[outNibblePos + 1] = (byte) (((runLength - 285) >> 8) & 15);
-				outNibbleArray[outNibblePos + 2] = (byte) (((runLength - 285) >> 4) & 15);
-				outNibbleArray[outNibblePos + 3] = (byte) ((runLength - 285) & 15);
-				outNibblePos += 4;
-			}
-			switch (palleteNibbleSize) {
-				case 1:
-					outNibbleArray[outNibblePos] = (byte) (palletePos & 15);
-					outNibblePos += 1;
-					break;
-				case 2:
-					outNibbleArray[outNibblePos] = (byte) (((palletePos) >> 4) & 15);
-					outNibbleArray[outNibblePos + 1] = (byte) ((palletePos) & 15);
-					outNibblePos += 2;
-					break;
-				case 3:
-					outNibbleArray[outNibblePos] = (byte) (((palletePos) >> 8) & 15);
-					outNibbleArray[outNibblePos + 1] = (byte) (((palletePos) >> 4) & 15);
-					outNibbleArray[outNibblePos + 2] = (byte) ((palletePos) & 15);
-					outNibblePos += 3;
-					break;
-			}
+			outNibblePosOffset = ((runLength > 12)?1:0) + ((runLength > 28)?1:0) + ((runLength > 285)?1:0);
+			outNibbleArray[outNibblePos] = (byte) (((runLength > 12)?12:(runLength & 15)) + outNibblePosOffset);
+			runLength -= offSets[outNibblePosOffset];
+			outNibbleArray[outNibblePos + 1] = (byte) ((runLength) & 15);
+			outNibbleArray[outNibblePos + 2] = (byte) (((runLength) >> 4) & 15);
+			outNibbleArray[outNibblePos + 3] = (byte) (((runLength) >> 8) & 15);
+			outNibblePos += outNibblePosOffset + 1;
+			outNibbleArray[outNibblePos] = (byte) (palletePos & 15);
+			outNibbleArray[outNibblePos + 1] = (byte) (((palletePos) >> 4) & 15);
+			outNibbleArray[outNibblePos + 2] = (byte) (((palletePos) >> 8) & 15);
+			outNibblePos += palleteNibbleSize;
 
 			byte[] output = new byte[1 + (outNibblePos >> 1)];
 			int nibble = 0;
@@ -280,35 +238,13 @@ public abstract class AnvilChunkStorageMixin {
 						pallete.add((char) ((nibbles[currentNibble + 1] << 12) + (nibbles[currentNibble + 2] << 8) + (nibbles[currentNibble + 3] << 4) + nibbles[currentNibble + 4]));
 						currentNibble += 5;
 						palleteSize += 1;
-						if (palleteSize > (Math.pow(16, palleteNibbleSize))) palleteNibbleSize += 1;
+						palleteNibbleSize += (palleteSize > pow16[palleteNibbleSize])?1:0;
 					}
-					if (nibbles[currentNibble] < 13) {
-						currentRunLength = nibbles[currentNibble];
-						currentNibble += 1;
-					} else if (nibbles[currentNibble] == 13) {
-						currentRunLength = (nibbles[currentNibble + 1] + 13);
-						currentNibble += 2;
-					} else if (nibbles[currentNibble] == 14) {
-						currentRunLength = ((nibbles[currentNibble + 1] << 4) + nibbles[currentNibble + 2] + 29);
-						currentNibble += 3;
-					} else {
-						currentRunLength = ((nibbles[currentNibble + 1] << 8) + (nibbles[currentNibble + 2] << 4) + nibbles[currentNibble + 3] + 285);
-						currentNibble += 4;
-					}
-					switch (palleteNibbleSize) {
-						case 1:
-							currentBlock = pallete.get(nibbles[currentNibble]);
-							currentNibble += 1;
-							break;
-						case 2:
-							currentBlock = pallete.get((nibbles[currentNibble] << 4) + nibbles[currentNibble + 1]);
-							currentNibble += 2;
-							break;
-						case 3:
-							currentBlock = pallete.get((nibbles[currentNibble] << 8) + (nibbles[currentNibble + 1] << 4) + nibbles[currentNibble + 2]);
-							currentNibble += 3;
-							break;
-					}
+					int num = (nibbles[currentNibble] > 12?1:0) + (nibbles[currentNibble] > 13?1:0) + (nibbles[currentNibble] > 14?1:0);
+					currentRunLength = num == 0 ?nibbles[currentNibble]: nibbles[currentNibble + 1] + (num > 1?nibbles[currentNibble + 2] << 4:0) + (num > 2?nibbles[currentNibble + 3] << 8:0) + offSets[num];
+					currentNibble += num + 1;
+					currentBlock = pallete.get(nibbles[currentNibble] + (palleteNibbleSize > 1?(nibbles[currentNibble + 1] << 4):0) + (palleteNibbleSize > 2?(nibbles[currentNibble + 2] << 8):0));
+					currentNibble += palleteNibbleSize;
 				}
 				currentRunLength -= 1;
 				output[blockArrayPos] = currentBlock;
