@@ -50,9 +50,11 @@ public abstract class AnvilChunkStorageMixin {
 		for (WorldChunkSection worldChunkSection : worldChunkSections) {
 			if (worldChunkSection == null) continue;
 
+			//saving y value of subchunk
 			NbtCompound subChunkNbt = new NbtCompound();
 			subChunkNbt.putByte("Y", (byte) (worldChunkSection.getOffsetY() >> 4));
 
+			//start of block compression and saving
 			char[] blocks = worldChunkSection.getBlockData();
 
 			char prevBlock = blocks[0];
@@ -137,8 +139,33 @@ public abstract class AnvilChunkStorageMixin {
 
 			subChunkNbt.putByteArray("nibbles", output);
 
-			subChunkNbt.putByteArray("BlockLight", worldChunkSection.getBlockLightStorage().getData());
-			if (bl) subChunkNbt.putByteArray("SkyLight", worldChunkSection.getSkyLightStorage().getData());
+			//start of light level saving
+			byte[] blockLights = worldChunkSection.getBlockLightStorage().getData();
+			byte[] skyLights = worldChunkSection.getSkyLightStorage().getData();
+
+			byte[] blockLightsOut = new byte[4096];
+			byte[] skyLightsOut = new byte[4096];
+			int prevBlockLight = 0;
+			int prevSkyLight = 0;
+
+			for (int pos = 0; pos < 4096; pos++) {
+				int checkPos = (pos & 256)!=0?pos^255:pos;
+				checkPos = (checkPos&16)!=0?checkPos^15:checkPos;
+
+				boolean even = ((checkPos & 1) == 0);
+				int blockLight = even ? blockLights[checkPos >> 1] & 15 : blockLights[checkPos >> 1] >> 4 & 15;
+				int skyLight = even ? skyLights[checkPos >> 1] & 15 : skyLights[checkPos >> 1] >> 4 & 15;
+
+				blockLightsOut[pos] = (byte) (15 + blockLight - prevBlockLight);
+				skyLightsOut[pos] = (byte) (15 + skyLight - prevSkyLight);
+				prevBlockLight = blockLight;
+				prevSkyLight = skyLight;
+			}
+
+
+
+			subChunkNbt.putByteArray("BlockLight", blockLightsOut);
+			if (bl) subChunkNbt.putByteArray("SkyLight", skyLightsOut);
 
 			subChunks.add(subChunkNbt);
 		}
@@ -210,9 +237,12 @@ public abstract class AnvilChunkStorageMixin {
 		int m;
 		for(int l = 0; l < nbtList.size(); ++l) {
 			NbtCompound nbtCompound2 = nbtList.getCompound(l);
+
+			//loading subchunk y level
 			m = nbtCompound2.getByte("Y");
 			WorldChunkSection worldChunkSection = new WorldChunkSection(m << 4, bl);
 
+			//start of block uncompressing and loading
 			byte[] input = nbtCompound2.getByteArray("nibbles");
 			byte[] nibbles = new byte[input.length << 2];
 			int nibblePos = 0;
@@ -251,9 +281,34 @@ public abstract class AnvilChunkStorageMixin {
 			}
 			worldChunkSection.setBlockData(output);
 
-			worldChunkSection.setBlockLightStorage(new ChunkNibbleStorage(nbtCompound2.getByteArray("BlockLight")));
+
+			//start of light level loading
+			byte[] blockLights = nbtCompound2.getByteArray("BlockLight");
+			byte[] skyLights = nbtCompound2.getByteArray("SkyLight");
+
+			byte[] blockLightsOut = new byte[2048];
+			byte[] skyLightsOut = new byte[2048];
+			int currentBlockLight = 0;
+			int currentSkyLight = 0;
+
+			for (int pos = 0; pos < 4096; pos++) {
+				int checkPos = (pos & 256)!=0?pos^255:pos;
+				checkPos = (checkPos&16)!=0?checkPos^15:checkPos;
+
+				int blockLight = -15 + blockLights[pos];
+				int skyLight = -15 + skyLights[pos];
+				currentBlockLight += blockLight;
+				currentSkyLight += skyLight;
+
+				boolean even = ((checkPos & 1) == 0);
+				blockLightsOut[checkPos >> 1] = (byte) (even?(blockLightsOut[checkPos >> 1] & 240 | currentBlockLight & 15):(blockLightsOut[checkPos >> 1] & 15 | (currentBlockLight & 15) << 4));
+				skyLightsOut[checkPos >> 1] = (byte) (even?(skyLightsOut[checkPos >> 1] & 240 | currentSkyLight & 15):(skyLightsOut[checkPos >> 1] & 15 | (currentSkyLight & 15) << 4));
+
+			}
+
+			worldChunkSection.setBlockLightStorage(new ChunkNibbleStorage(blockLightsOut));
 			if (bl) {
-				worldChunkSection.setSkyLightStorage(new ChunkNibbleStorage(nbtCompound2.getByteArray("SkyLight")));
+				worldChunkSection.setSkyLightStorage(new ChunkNibbleStorage(skyLightsOut));
 			}
 
 			worldChunkSection.validateBlockCounters();
