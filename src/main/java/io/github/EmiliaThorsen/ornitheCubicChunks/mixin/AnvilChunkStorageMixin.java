@@ -1,5 +1,6 @@
 package io.github.EmiliaThorsen.ornitheCubicChunks.mixin;
 
+import io.github.EmiliaThorsen.ornitheCubicChunks.ornitheCubicChunksMod;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import net.minecraft.block.Block;
 import net.minecraft.block.entity.BlockEntity;
@@ -27,6 +28,7 @@ public abstract class AnvilChunkStorageMixin {
 	public abstract boolean run();
 
 	private static final int[] offSets = {0, 13, 29, 285};
+	private static final int[] lightOffSets = {0, 6, 22, 278};
 	private static final int[] pow16 = {0, 16, 256, 4096};
 
 	/**
@@ -141,31 +143,81 @@ public abstract class AnvilChunkStorageMixin {
 
 			//start of light level saving
 			byte[] blockLights = worldChunkSection.getBlockLightStorage().getData();
-			byte[] skyLights = worldChunkSection.getSkyLightStorage().getData();
 
-			byte[] blockLightsOut = new byte[4096];
-			byte[] skyLightsOut = new byte[4096];
-			int prevBlockLight = 0;
-			int prevSkyLight = 0;
+			byte[] blockLightsOut = new byte[8000];
 
-			for (int pos = 0; pos < 4096; pos++) {
-				int checkPos = (pos & 256)!=0?pos^255:pos;
-				checkPos = (checkPos&16)!=0?checkPos^15:checkPos;
 
+			int prevBlockLight = blockLights[0] & 15;
+
+			int lightNibbleArrayPos = 0;
+			switch (prevBlockLight) {
+				case 15:
+					blockLightsOut[lightNibbleArrayPos] = 12;
+					lightNibbleArrayPos += 1;
+					break;
+				case 0:
+					blockLightsOut[lightNibbleArrayPos] = 13;
+					lightNibbleArrayPos += 1;
+					break;
+				default:
+					blockLightsOut[lightNibbleArrayPos] = 14;
+					blockLightsOut[lightNibbleArrayPos + 1] = (byte) (prevBlockLight & 15);
+					lightNibbleArrayPos += 2;
+					break;
+			}
+
+			for (int pos = 1; pos < 4096; pos++) {
+				int checkPos = ((pos & 256)!=0)?pos^240:pos;
+				checkPos = ((checkPos&16)!=0)?checkPos^15:checkPos;
 				boolean even = ((checkPos & 1) == 0);
-				int blockLight = even ? blockLights[checkPos >> 1] & 15 : blockLights[checkPos >> 1] >> 4 & 15;
-				int skyLight = even ? skyLights[checkPos >> 1] & 15 : skyLights[checkPos >> 1] >> 4 & 15;
+				int blockLight = even ? (blockLights[checkPos >> 1] & 15) : (blockLights[checkPos >> 1] >> 4 & 15);
 
-				blockLightsOut[pos] = (byte) (15 + blockLight - prevBlockLight);
-				skyLightsOut[pos] = (byte) (15 + skyLight - prevSkyLight);
+					switch (blockLight - prevBlockLight) {
+						case 0:
+							blockLightsOut[lightNibbleArrayPos] = 0;
+							lightNibbleArrayPos += 1;
+							break;
+						case -1:
+							blockLightsOut[lightNibbleArrayPos] = 8;
+							lightNibbleArrayPos += 1;
+							break;
+						case 1:
+							blockLightsOut[lightNibbleArrayPos] = 9;
+							lightNibbleArrayPos += 1;
+							break;
+						case -3:
+							blockLightsOut[lightNibbleArrayPos] = 10;
+							lightNibbleArrayPos += 1;
+							break;
+						case 3:
+							blockLightsOut[lightNibbleArrayPos] = 11;
+							lightNibbleArrayPos += 1;
+							break;
+						default:
+							switch (blockLight) {
+								case 15:
+									blockLightsOut[lightNibbleArrayPos] = 12;
+									lightNibbleArrayPos += 1;
+									break;
+								case 0:
+									blockLightsOut[lightNibbleArrayPos] = 13;
+									lightNibbleArrayPos += 1;
+									break;
+								default:
+									blockLightsOut[lightNibbleArrayPos] = 14;
+									blockLightsOut[lightNibbleArrayPos + 1] = (byte) blockLight;
+									lightNibbleArrayPos += 2;
+									break;
+							}
+
+				}
 				prevBlockLight = blockLight;
-				prevSkyLight = skyLight;
 			}
 
 
-
 			subChunkNbt.putByteArray("BlockLight", blockLightsOut);
-			if (bl) subChunkNbt.putByteArray("SkyLight", skyLightsOut);
+
+			if (bl) subChunkNbt.putByteArray("SkyLight", worldChunkSection.getSkyLightStorage().getData());
 
 			subChunks.add(subChunkNbt);
 		}
@@ -284,32 +336,63 @@ public abstract class AnvilChunkStorageMixin {
 
 			//start of light level loading
 			byte[] blockLights = nbtCompound2.getByteArray("BlockLight");
-			byte[] skyLights = nbtCompound2.getByteArray("SkyLight");
+
 
 			byte[] blockLightsOut = new byte[2048];
-			byte[] skyLightsOut = new byte[2048];
 			int currentBlockLight = 0;
-			int currentSkyLight = 0;
-
+			int inArrayPos = 0;
+			int currentChange;
 			for (int pos = 0; pos < 4096; pos++) {
-				int checkPos = (pos & 256)!=0?pos^255:pos;
-				checkPos = (checkPos&16)!=0?checkPos^15:checkPos;
+				int checkPos = ((pos & 256)!=0)?pos^240:pos;
+				checkPos = ((checkPos&16)!=0)?checkPos^15:checkPos;
 
-				int blockLight = -15 + blockLights[pos];
-				int skyLight = -15 + skyLights[pos];
-				currentBlockLight += blockLight;
-				currentSkyLight += skyLight;
+					switch (blockLights[inArrayPos]) {
+						case 8:
+							inArrayPos += 1;
+							currentChange = -1;
+							break;
+						case 9:
+							inArrayPos += 1;
+							currentChange = 1;
+							break;
+						case 10:
+							inArrayPos += 1;
+							currentChange = -3;
+							break;
+						case 11:
+							inArrayPos += 1;
+							currentChange = 3;
+							break;
+						case 12:
+							inArrayPos += 1;
+							currentBlockLight = 15;
+							currentChange = 0;
+							break;
+						case 13:
+							inArrayPos += 1;
+							currentBlockLight = 0;
+							currentChange = 0;
+							break;
+						case 14:
+							currentBlockLight = blockLights[inArrayPos + 1];
+							inArrayPos += 2;
+							currentChange = 0;
+							break;
+						default:
+							inArrayPos += 1;
+							currentChange = 0;
+							break;
 
+					}
+
+				currentBlockLight += currentChange;
 				boolean even = ((checkPos & 1) == 0);
 				blockLightsOut[checkPos >> 1] = (byte) (even?(blockLightsOut[checkPos >> 1] & 240 | currentBlockLight & 15):(blockLightsOut[checkPos >> 1] & 15 | (currentBlockLight & 15) << 4));
-				skyLightsOut[checkPos >> 1] = (byte) (even?(skyLightsOut[checkPos >> 1] & 240 | currentSkyLight & 15):(skyLightsOut[checkPos >> 1] & 15 | (currentSkyLight & 15) << 4));
-
 			}
 
 			worldChunkSection.setBlockLightStorage(new ChunkNibbleStorage(blockLightsOut));
-			if (bl) {
-				worldChunkSection.setSkyLightStorage(new ChunkNibbleStorage(skyLightsOut));
-			}
+
+			if (bl) {worldChunkSection.setSkyLightStorage(new ChunkNibbleStorage(nbtCompound2.getByteArray("SkyLight")));}
 
 			worldChunkSection.validateBlockCounters();
 			worldChunkSections[m] = worldChunkSection;
