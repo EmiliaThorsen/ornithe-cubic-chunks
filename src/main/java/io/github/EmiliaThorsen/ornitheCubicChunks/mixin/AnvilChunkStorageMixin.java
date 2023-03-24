@@ -31,6 +31,188 @@ public abstract class AnvilChunkStorageMixin {
 	private static final int[] lightOffSets = {0, 5, 21, 277};
 	private static final int[] pow16 = {0, 16, 256, 4096};
 
+	byte[] lightSaver(byte[] saveArray, byte[] blockLights) {
+		int saveArrayPos = 0;
+		int blockLight = (blockLights[0] & 15);
+		int prevBlockLight = blockLight;
+		int curLight = blockLight;
+		int prev = blockLight;
+		int rl = 0;
+
+		for (int pos = 1; pos < 4096; pos++) {
+			int checkPos = ((pos & 256)!=0)?pos^240:pos;
+			checkPos = ((checkPos&16)!=0)?checkPos^15:checkPos;
+			boolean even = ((checkPos & 1) == 0);
+			blockLight = even ? (blockLights[checkPos >> 1] & 15) : (blockLights[checkPos >> 1] >> 4 & 15);
+			int thing = blockLight - prevBlockLight;
+			if (thing != prev | !((thing == -3) | (thing == -1) | (thing == 0) | (thing == 1) | (thing == 3))) {
+				switch (prev) {
+					case 0:
+						int outNibblePosOffset = ((rl > 4)?1:0) + ((rl > 20)?1:0) + ((rl > 276)?1:0);
+						saveArray[saveArrayPos] = (byte) (((rl > 4)?4:(rl & 15)) + outNibblePosOffset);
+						rl -= lightOffSets[outNibblePosOffset];
+						saveArray[saveArrayPos + 1] = (byte) (rl & 15);
+						saveArray[saveArrayPos + 2] = (byte) ((rl >> 4) & 15);
+						saveArray[saveArrayPos + 3] = (byte) ((rl >> 8) & 15);
+						saveArrayPos += outNibblePosOffset + 1;
+						break;
+					case -1:
+						saveArray[saveArrayPos] = 8;
+						saveArray[saveArrayPos + 1] = (byte) rl;
+						saveArrayPos += 2;
+						break;
+					case 1:
+						saveArray[saveArrayPos] = 9;
+						saveArray[saveArrayPos + 1] = (byte) rl;
+						saveArrayPos += 2;
+						break;
+					case -3:
+						saveArray[saveArrayPos] = 10;
+						saveArray[saveArrayPos + 1] = (byte) rl;
+						saveArrayPos += 2;
+						break;
+					case 3:
+						saveArray[saveArrayPos] = 11;
+						saveArray[saveArrayPos + 1] = (byte) rl;
+						saveArrayPos += 2;
+						break;
+					default:
+						switch (curLight) {
+							case 15:
+								saveArray[saveArrayPos] = 12;
+								saveArrayPos += 1;
+								break;
+							case 0:
+								saveArray[saveArrayPos] = 13;
+								saveArrayPos += 1;
+								break;
+							default:
+								saveArray[saveArrayPos] = 14;
+								saveArray[saveArrayPos + 1] = (byte) curLight;
+								saveArrayPos += 2;
+								break;
+						}
+				}
+				prev = thing;
+				curLight = blockLight;
+				rl = 0;
+
+			} else {
+				rl += 1;
+			}
+			prevBlockLight = blockLight;
+
+		}
+		switch (prev) {
+			case 0:
+				int outNibblePosOffset = ((rl > 4)?1:0) + ((rl > 20)?1:0) + ((rl > 276)?1:0);
+				saveArray[saveArrayPos] = (byte) (((rl > 4)?4:(rl & 15)) + outNibblePosOffset);
+				rl -= lightOffSets[outNibblePosOffset];
+				saveArray[saveArrayPos + 1] = (byte) (rl & 15);
+				saveArray[saveArrayPos + 2] = (byte) ((rl >> 4) & 15);
+				saveArray[saveArrayPos + 3] = (byte) ((rl >> 8) & 15);
+				break;
+			case -1:
+				saveArray[saveArrayPos] = 8;
+				saveArray[saveArrayPos + 1] = (byte) rl;
+				break;
+			case 1:
+				saveArray[saveArrayPos] = 9;
+				saveArray[saveArrayPos + 1] = (byte) rl;
+				break;
+			case -3:
+				saveArray[saveArrayPos] = 10;
+				saveArray[saveArrayPos + 1] = (byte) rl;
+				break;
+			case 3:
+				saveArray[saveArrayPos] = 11;
+				saveArray[saveArrayPos + 1] = (byte) rl;
+				break;
+			default:
+				switch (curLight) {
+					case 15:
+						saveArray[saveArrayPos] = 12;
+						break;
+					case 0:
+						saveArray[saveArrayPos] = 13;
+						break;
+					default:
+						saveArray[saveArrayPos] = 14;
+						saveArray[saveArrayPos + 1] = (byte) curLight;
+						break;
+				}
+		}
+		return saveArray;
+	}
+
+	byte[] lightLoader(byte[] inNibbles) {
+		int rl = 0;
+		byte[] lightLevels = new byte[2048];
+		int currentBlockLight = 0;
+		int inArrayPos = 0;
+		int currentChange = 0;
+		for (int pos = 0; pos < 4096; pos++) {
+			int checkPos = ((pos & 256)!=0)?pos^240:pos;
+			checkPos = ((checkPos&16)!=0)?checkPos^15:checkPos;
+			if (rl != 0) {
+				rl -= 1;
+			} else {
+				switch (inNibbles[inArrayPos]) {
+					case 8:
+						rl = inNibbles[inArrayPos + 1];
+						inArrayPos += 2;
+						currentChange = -1;
+						break;
+					case 9:
+						rl = inNibbles[inArrayPos + 1];
+						inArrayPos += 2;
+						currentChange = 1;
+						break;
+					case 10:
+						rl = inNibbles[inArrayPos + 1];
+						inArrayPos += 2;
+						currentChange = -3;
+						break;
+					case 11:
+						rl = inNibbles[inArrayPos + 1];
+						inArrayPos += 2;
+						currentChange = 3;
+						break;
+					case 12:
+						inArrayPos += 1;
+						currentBlockLight = 15;
+						currentChange = 0;
+						break;
+					case 13:
+						inArrayPos += 1;
+						currentBlockLight = 0;
+						currentChange = 0;
+						break;
+					case 14:
+						currentBlockLight = inNibbles[inArrayPos + 1];
+						inArrayPos += 2;
+						currentChange = 0;
+						break;
+					default:
+						if (inNibbles[inArrayPos] > 4) {
+							int num = inNibbles[inArrayPos] - 4;
+							rl = inNibbles[inArrayPos + 1] + (num > 1 ? inNibbles[inArrayPos + 2] << 4 : 0) + (num > 2 ? inNibbles[inArrayPos + 3] << 8 : 0) + lightOffSets[num];
+							inArrayPos += num + 1;
+						} else {
+							rl = inNibbles[inArrayPos];
+							inArrayPos += 1;
+						}
+						currentChange = 0;
+						break;
+				}
+			}
+			currentBlockLight += currentChange;
+			boolean even = ((checkPos & 1) == 0);
+			lightLevels[checkPos >> 1] = (byte) (even?(lightLevels[checkPos >> 1] & 240 | currentBlockLight & 15):(lightLevels[checkPos >> 1] & 15 | (currentBlockLight & 15) << 4));
+		}
+		return lightLevels;
+	}
+
 	/**
 	 * @author EmiliaThorsen
 	 * @reason kinda self-explanatory considering the mod
@@ -143,132 +325,14 @@ public abstract class AnvilChunkStorageMixin {
 
 			//start of light level saving
 			byte[] blockLights = worldChunkSection.getBlockLightStorage().getData();
-
 			byte[] blockLightsOut = new byte[8000];
+			subChunkNbt.putByteArray("BlockLight", lightSaver(blockLightsOut, blockLights));
 
-			int lightNibbleArrayPos = 0;
-			int blockLight = (blockLights[0] & 15);
-			int prevBlockLight = blockLight;
-			int curLight = blockLight;
-			int prev = blockLight;
-			int rl = 0;
-
-			for (int pos = 1; pos < 4096; pos++) {
-				int checkPos = ((pos & 256)!=0)?pos^240:pos;
-				checkPos = ((checkPos&16)!=0)?checkPos^15:checkPos;
-				boolean even = ((checkPos & 1) == 0);
-				blockLight = even ? (blockLights[checkPos >> 1] & 15) : (blockLights[checkPos >> 1] >> 4 & 15);
-				int thing = blockLight - prevBlockLight;
-				if (thing != prev | !((thing == -3) | (thing == -1) | (thing == 0) | (thing == 1) | (thing == 3))) {
-					switch (prev) {
-						case 0:
-							outNibblePosOffset = ((rl > 4)?1:0) + ((rl > 20)?1:0) + ((rl > 276)?1:0);
-							blockLightsOut[lightNibbleArrayPos] = (byte) (((rl > 4)?4:(rl & 15)) + outNibblePosOffset);
-							rl -= lightOffSets[outNibblePosOffset];
-							blockLightsOut[lightNibbleArrayPos + 1] = (byte) (rl & 15);
-							blockLightsOut[lightNibbleArrayPos + 2] = (byte) ((rl >> 4) & 15);
-							blockLightsOut[lightNibbleArrayPos + 3] = (byte) ((rl >> 8) & 15);
-							lightNibbleArrayPos += outNibblePosOffset + 1;
-							break;
-						case -1:
-							blockLightsOut[lightNibbleArrayPos] = 8;
-							blockLightsOut[lightNibbleArrayPos + 1] = (byte) rl;
-							lightNibbleArrayPos += 2;
-							break;
-						case 1:
-							blockLightsOut[lightNibbleArrayPos] = 9;
-							blockLightsOut[lightNibbleArrayPos + 1] = (byte) rl;
-							lightNibbleArrayPos += 2;
-							break;
-						case -3:
-							blockLightsOut[lightNibbleArrayPos] = 10;
-							blockLightsOut[lightNibbleArrayPos + 1] = (byte) rl;
-							lightNibbleArrayPos += 2;
-							break;
-						case 3:
-							blockLightsOut[lightNibbleArrayPos] = 11;
-							blockLightsOut[lightNibbleArrayPos + 1] = (byte) rl;
-							lightNibbleArrayPos += 2;
-							break;
-						default:
-							switch (curLight) {
-								case 15:
-									blockLightsOut[lightNibbleArrayPos] = 12;
-									lightNibbleArrayPos += 1;
-									break;
-								case 0:
-									blockLightsOut[lightNibbleArrayPos] = 13;
-									lightNibbleArrayPos += 1;
-									break;
-								default:
-									blockLightsOut[lightNibbleArrayPos] = 14;
-									blockLightsOut[lightNibbleArrayPos + 1] = (byte) curLight;
-									lightNibbleArrayPos += 2;
-									break;
-							}
-					}
-					prev = thing;
-					curLight = blockLight;
-					rl = 0;
-
-				} else {
-					rl += 1;
-				}
-				prevBlockLight = blockLight;
-
+			if (bl) {
+				byte[] skyLights = worldChunkSection.getSkyLightStorage().getData();
+				byte[] skyLightsOut = new byte[8000];
+				subChunkNbt.putByteArray("SkyLight", lightSaver(skyLightsOut, skyLights));
 			}
-			switch (prev) {
-				case 0:
-					outNibblePosOffset = ((rl > 4)?1:0) + ((rl > 20)?1:0) + ((rl > 276)?1:0);
-					blockLightsOut[lightNibbleArrayPos] = (byte) (((rl > 4)?4:(rl & 15)) + outNibblePosOffset);
-					rl -= lightOffSets[outNibblePosOffset];
-					blockLightsOut[lightNibbleArrayPos + 1] = (byte) (rl & 15);
-					blockLightsOut[lightNibbleArrayPos + 2] = (byte) ((rl >> 4) & 15);
-					blockLightsOut[lightNibbleArrayPos + 3] = (byte) ((rl >> 8) & 15);
-					lightNibbleArrayPos += outNibblePosOffset + 1;
-					break;
-				case -1:
-					blockLightsOut[lightNibbleArrayPos] = 8;
-					blockLightsOut[lightNibbleArrayPos + 1] = (byte) rl;
-					lightNibbleArrayPos += 2;
-					break;
-				case 1:
-					blockLightsOut[lightNibbleArrayPos] = 9;
-					blockLightsOut[lightNibbleArrayPos + 1] = (byte) rl;
-					lightNibbleArrayPos += 2;
-					break;
-				case -3:
-					blockLightsOut[lightNibbleArrayPos] = 10;
-					blockLightsOut[lightNibbleArrayPos + 1] = (byte) rl;
-					lightNibbleArrayPos += 2;
-					break;
-				case 3:
-					blockLightsOut[lightNibbleArrayPos] = 11;
-					blockLightsOut[lightNibbleArrayPos + 1] = (byte) rl;
-					lightNibbleArrayPos += 2;
-					break;
-				default:
-					switch (curLight) {
-						case 15:
-							blockLightsOut[lightNibbleArrayPos] = 12;
-							lightNibbleArrayPos += 1;
-							break;
-						case 0:
-							blockLightsOut[lightNibbleArrayPos] = 13;
-							lightNibbleArrayPos += 1;
-							break;
-						default:
-							blockLightsOut[lightNibbleArrayPos] = 14;
-							blockLightsOut[lightNibbleArrayPos + 1] = (byte) curLight;
-							lightNibbleArrayPos += 2;
-							break;
-					}
-			}
-
-			ornitheCubicChunksMod.LOGGER.info(lightNibbleArrayPos);
-			subChunkNbt.putByteArray("BlockLight", blockLightsOut);
-
-			if (bl) subChunkNbt.putByteArray("SkyLight", worldChunkSection.getSkyLightStorage().getData());
 
 			subChunks.add(subChunkNbt);
 		}
@@ -306,7 +370,7 @@ public abstract class AnvilChunkStorageMixin {
 
 			for (ScheduledTick scheduledTick : list) {
 				NbtCompound nbtCompound3 = new NbtCompound();
-				Identifier identifier = (Identifier) Block.REGISTRY.getKey(scheduledTick.getBlock());
+				Identifier identifier = Block.REGISTRY.getKey(scheduledTick.getBlock());
 				nbtCompound3.putString("i", identifier == null ? "" : identifier.toString());
 				nbtCompound3.putInt("x", scheduledTick.pos.getX());
 				nbtCompound3.putInt("y", scheduledTick.pos.getY());
@@ -386,80 +450,11 @@ public abstract class AnvilChunkStorageMixin {
 
 
 			//start of light level loading
-			byte[] blockLights = nbtCompound2.getByteArray("BlockLight");
-			int rl = 0;
-			byte[] blockLightsOut = new byte[2048];
-			int currentBlockLight = 0;
-			int inArrayPos = 0;
-			int currentChange = 0;
-			for (int pos = 0; pos < 4096; pos++) {
-				int checkPos = ((pos & 256)!=0)?pos^240:pos;
-				checkPos = ((checkPos&16)!=0)?checkPos^15:checkPos;
-				if (rl != 0) {
-					rl -= 1;
-				} else {
-					switch (blockLights[inArrayPos]) {
-						case 8:
-							rl = blockLights[inArrayPos + 1];
-							inArrayPos += 2;
-							currentChange = -1;
-							break;
-						case 9:
-							rl = blockLights[inArrayPos + 1];
-							inArrayPos += 2;
-							currentChange = 1;
-							break;
-						case 10:
-							rl = blockLights[inArrayPos + 1];
-							inArrayPos += 2;
-							currentChange = -3;
-							break;
-						case 11:
-							rl = blockLights[inArrayPos + 1];
-							inArrayPos += 2;
-							currentChange = 3;
-							break;
-						case 12:
-							inArrayPos += 1;
-							currentBlockLight = 15;
-							currentChange = 0;
-							break;
-						case 13:
-							inArrayPos += 1;
-							currentBlockLight = 0;
-							currentChange = 0;
-							break;
-						case 14:
-							currentBlockLight = blockLights[inArrayPos + 1];
-							inArrayPos += 2;
-							currentChange = 0;
-							break;
-						case 15:
-							ornitheCubicChunksMod.LOGGER.info("WTF!");
-							ornitheCubicChunksMod.LOGGER.info(inArrayPos);
-							ornitheCubicChunksMod.LOGGER.info(i);
-							ornitheCubicChunksMod.LOGGER.info(j);
-						default:
-							if (blockLights[inArrayPos] > 4) {
-								int num = blockLights[inArrayPos] - 4;
-								rl = blockLights[inArrayPos + 1] + (num > 1 ? blockLights[inArrayPos + 2] << 4 : 0) + (num > 2 ? blockLights[inArrayPos + 3] << 8 : 0) + lightOffSets[num];
-								inArrayPos += num + 1;
-							} else {
-								rl = blockLights[inArrayPos];
-								inArrayPos += 1;
-							}
-							currentChange = 0;
-							break;
-					}
-				}
-				currentBlockLight += currentChange;
-				boolean even = ((checkPos & 1) == 0);
-				blockLightsOut[checkPos >> 1] = (byte) (even?(blockLightsOut[checkPos >> 1] & 240 | currentBlockLight & 15):(blockLightsOut[checkPos >> 1] & 15 | (currentBlockLight & 15) << 4));
+			worldChunkSection.setBlockLightStorage(new ChunkNibbleStorage(lightLoader(nbtCompound2.getByteArray("BlockLight"))));
+
+			if (bl) {
+				worldChunkSection.setSkyLightStorage(new ChunkNibbleStorage(lightLoader(nbtCompound2.getByteArray("SkyLight"))));
 			}
-
-			worldChunkSection.setBlockLightStorage(new ChunkNibbleStorage(blockLightsOut));
-
-			if (bl) {worldChunkSection.setSkyLightStorage(new ChunkNibbleStorage(nbtCompound2.getByteArray("SkyLight")));}
 
 			worldChunkSection.validateBlockCounters();
 			worldChunkSections[m] = worldChunkSection;
