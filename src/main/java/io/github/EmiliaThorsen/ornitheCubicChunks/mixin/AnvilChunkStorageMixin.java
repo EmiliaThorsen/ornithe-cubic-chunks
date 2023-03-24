@@ -28,7 +28,7 @@ public abstract class AnvilChunkStorageMixin {
 	public abstract boolean run();
 
 	private static final int[] offSets = {0, 13, 29, 285};
-	private static final int[] lightOffSets = {0, 6, 22, 278};
+	private static final int[] lightOffSets = {0, 5, 21, 277};
 	private static final int[] pow16 = {0, 16, 256, 4096};
 
 	/**
@@ -146,55 +146,52 @@ public abstract class AnvilChunkStorageMixin {
 
 			byte[] blockLightsOut = new byte[8000];
 
-
-			int prevBlockLight = blockLights[0] & 15;
-
 			int lightNibbleArrayPos = 0;
-			switch (prevBlockLight) {
-				case 15:
-					blockLightsOut[lightNibbleArrayPos] = 12;
-					lightNibbleArrayPos += 1;
-					break;
-				case 0:
-					blockLightsOut[lightNibbleArrayPos] = 13;
-					lightNibbleArrayPos += 1;
-					break;
-				default:
-					blockLightsOut[lightNibbleArrayPos] = 14;
-					blockLightsOut[lightNibbleArrayPos + 1] = (byte) (prevBlockLight & 15);
-					lightNibbleArrayPos += 2;
-					break;
-			}
+			int blockLight = (blockLights[0] & 15);
+			int prevBlockLight = blockLight;
+			int curLight = blockLight;
+			int prev = blockLight;
+			int rl = 0;
 
 			for (int pos = 1; pos < 4096; pos++) {
 				int checkPos = ((pos & 256)!=0)?pos^240:pos;
 				checkPos = ((checkPos&16)!=0)?checkPos^15:checkPos;
 				boolean even = ((checkPos & 1) == 0);
-				int blockLight = even ? (blockLights[checkPos >> 1] & 15) : (blockLights[checkPos >> 1] >> 4 & 15);
-
-					switch (blockLight - prevBlockLight) {
+				blockLight = even ? (blockLights[checkPos >> 1] & 15) : (blockLights[checkPos >> 1] >> 4 & 15);
+				int thing = blockLight - prevBlockLight;
+				if (thing != prev | !((thing == -3) | (thing == -1) | (thing == 0) | (thing == 1) | (thing == 3))) {
+					switch (prev) {
 						case 0:
-							blockLightsOut[lightNibbleArrayPos] = 0;
-							lightNibbleArrayPos += 1;
+							outNibblePosOffset = ((rl > 4)?1:0) + ((rl > 20)?1:0) + ((rl > 276)?1:0);
+							blockLightsOut[lightNibbleArrayPos] = (byte) (((rl > 4)?4:(rl & 15)) + outNibblePosOffset);
+							rl -= lightOffSets[outNibblePosOffset];
+							blockLightsOut[lightNibbleArrayPos + 1] = (byte) (rl & 15);
+							blockLightsOut[lightNibbleArrayPos + 2] = (byte) ((rl >> 4) & 15);
+							blockLightsOut[lightNibbleArrayPos + 3] = (byte) ((rl >> 8) & 15);
+							lightNibbleArrayPos += outNibblePosOffset + 1;
 							break;
 						case -1:
 							blockLightsOut[lightNibbleArrayPos] = 8;
-							lightNibbleArrayPos += 1;
+							blockLightsOut[lightNibbleArrayPos + 1] = (byte) rl;
+							lightNibbleArrayPos += 2;
 							break;
 						case 1:
 							blockLightsOut[lightNibbleArrayPos] = 9;
-							lightNibbleArrayPos += 1;
+							blockLightsOut[lightNibbleArrayPos + 1] = (byte) rl;
+							lightNibbleArrayPos += 2;
 							break;
 						case -3:
 							blockLightsOut[lightNibbleArrayPos] = 10;
-							lightNibbleArrayPos += 1;
+							blockLightsOut[lightNibbleArrayPos + 1] = (byte) rl;
+							lightNibbleArrayPos += 2;
 							break;
 						case 3:
 							blockLightsOut[lightNibbleArrayPos] = 11;
-							lightNibbleArrayPos += 1;
+							blockLightsOut[lightNibbleArrayPos + 1] = (byte) rl;
+							lightNibbleArrayPos += 2;
 							break;
 						default:
-							switch (blockLight) {
+							switch (curLight) {
 								case 15:
 									blockLightsOut[lightNibbleArrayPos] = 12;
 									lightNibbleArrayPos += 1;
@@ -205,16 +202,70 @@ public abstract class AnvilChunkStorageMixin {
 									break;
 								default:
 									blockLightsOut[lightNibbleArrayPos] = 14;
-									blockLightsOut[lightNibbleArrayPos + 1] = (byte) blockLight;
+									blockLightsOut[lightNibbleArrayPos + 1] = (byte) curLight;
 									lightNibbleArrayPos += 2;
 									break;
 							}
+					}
+					prev = thing;
+					curLight = blockLight;
+					rl = 0;
 
+				} else {
+					rl += 1;
 				}
 				prevBlockLight = blockLight;
+
+			}
+			switch (prev) {
+				case 0:
+					outNibblePosOffset = ((rl > 4)?1:0) + ((rl > 20)?1:0) + ((rl > 276)?1:0);
+					blockLightsOut[lightNibbleArrayPos] = (byte) (((rl > 4)?4:(rl & 15)) + outNibblePosOffset);
+					rl -= lightOffSets[outNibblePosOffset];
+					blockLightsOut[lightNibbleArrayPos + 1] = (byte) (rl & 15);
+					blockLightsOut[lightNibbleArrayPos + 2] = (byte) ((rl >> 4) & 15);
+					blockLightsOut[lightNibbleArrayPos + 3] = (byte) ((rl >> 8) & 15);
+					lightNibbleArrayPos += outNibblePosOffset + 1;
+					break;
+				case -1:
+					blockLightsOut[lightNibbleArrayPos] = 8;
+					blockLightsOut[lightNibbleArrayPos + 1] = (byte) rl;
+					lightNibbleArrayPos += 2;
+					break;
+				case 1:
+					blockLightsOut[lightNibbleArrayPos] = 9;
+					blockLightsOut[lightNibbleArrayPos + 1] = (byte) rl;
+					lightNibbleArrayPos += 2;
+					break;
+				case -3:
+					blockLightsOut[lightNibbleArrayPos] = 10;
+					blockLightsOut[lightNibbleArrayPos + 1] = (byte) rl;
+					lightNibbleArrayPos += 2;
+					break;
+				case 3:
+					blockLightsOut[lightNibbleArrayPos] = 11;
+					blockLightsOut[lightNibbleArrayPos + 1] = (byte) rl;
+					lightNibbleArrayPos += 2;
+					break;
+				default:
+					switch (curLight) {
+						case 15:
+							blockLightsOut[lightNibbleArrayPos] = 12;
+							lightNibbleArrayPos += 1;
+							break;
+						case 0:
+							blockLightsOut[lightNibbleArrayPos] = 13;
+							lightNibbleArrayPos += 1;
+							break;
+						default:
+							blockLightsOut[lightNibbleArrayPos] = 14;
+							blockLightsOut[lightNibbleArrayPos + 1] = (byte) curLight;
+							lightNibbleArrayPos += 2;
+							break;
+					}
 			}
 
-
+			ornitheCubicChunksMod.LOGGER.info(lightNibbleArrayPos);
 			subChunkNbt.putByteArray("BlockLight", blockLightsOut);
 
 			if (bl) subChunkNbt.putByteArray("SkyLight", worldChunkSection.getSkyLightStorage().getData());
@@ -336,31 +387,36 @@ public abstract class AnvilChunkStorageMixin {
 
 			//start of light level loading
 			byte[] blockLights = nbtCompound2.getByteArray("BlockLight");
-
-
+			int rl = 0;
 			byte[] blockLightsOut = new byte[2048];
 			int currentBlockLight = 0;
 			int inArrayPos = 0;
-			int currentChange;
+			int currentChange = 0;
 			for (int pos = 0; pos < 4096; pos++) {
 				int checkPos = ((pos & 256)!=0)?pos^240:pos;
 				checkPos = ((checkPos&16)!=0)?checkPos^15:checkPos;
-
+				if (rl != 0) {
+					rl -= 1;
+				} else {
 					switch (blockLights[inArrayPos]) {
 						case 8:
-							inArrayPos += 1;
+							rl = blockLights[inArrayPos + 1];
+							inArrayPos += 2;
 							currentChange = -1;
 							break;
 						case 9:
-							inArrayPos += 1;
+							rl = blockLights[inArrayPos + 1];
+							inArrayPos += 2;
 							currentChange = 1;
 							break;
 						case 10:
-							inArrayPos += 1;
+							rl = blockLights[inArrayPos + 1];
+							inArrayPos += 2;
 							currentChange = -3;
 							break;
 						case 11:
-							inArrayPos += 1;
+							rl = blockLights[inArrayPos + 1];
+							inArrayPos += 2;
 							currentChange = 3;
 							break;
 						case 12:
@@ -378,13 +434,24 @@ public abstract class AnvilChunkStorageMixin {
 							inArrayPos += 2;
 							currentChange = 0;
 							break;
+						case 15:
+							ornitheCubicChunksMod.LOGGER.info("WTF!");
+							ornitheCubicChunksMod.LOGGER.info(inArrayPos);
+							ornitheCubicChunksMod.LOGGER.info(i);
+							ornitheCubicChunksMod.LOGGER.info(j);
 						default:
-							inArrayPos += 1;
+							if (blockLights[inArrayPos] > 4) {
+								int num = blockLights[inArrayPos] - 4;
+								rl = blockLights[inArrayPos + 1] + (num > 1 ? blockLights[inArrayPos + 2] << 4 : 0) + (num > 2 ? blockLights[inArrayPos + 3] << 8 : 0) + lightOffSets[num];
+								inArrayPos += num + 1;
+							} else {
+								rl = blockLights[inArrayPos];
+								inArrayPos += 1;
+							}
 							currentChange = 0;
 							break;
-
 					}
-
+				}
 				currentBlockLight += currentChange;
 				boolean even = ((checkPos & 1) == 0);
 				blockLightsOut[checkPos >> 1] = (byte) (even?(blockLightsOut[checkPos >> 1] & 240 | currentBlockLight & 15):(blockLightsOut[checkPos >> 1] & 15 | (currentBlockLight & 15) << 4));
