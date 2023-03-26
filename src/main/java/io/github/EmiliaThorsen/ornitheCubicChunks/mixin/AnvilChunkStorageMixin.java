@@ -1,6 +1,8 @@
 package io.github.EmiliaThorsen.ornitheCubicChunks.mixin;
 
 import io.github.EmiliaThorsen.ornitheCubicChunks.ornitheCubicChunksMod;
+import it.unimi.dsi.fastutil.bytes.ByteArrayFIFOQueue;
+import it.unimi.dsi.fastutil.bytes.ByteArrayList;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import net.minecraft.block.Block;
 import net.minecraft.block.entity.BlockEntity;
@@ -31,8 +33,7 @@ public abstract class AnvilChunkStorageMixin {
 	private static final int[] lightOffSets = {0, 5, 21, 277};
 	private static final int[] pow16 = {0, 16, 256, 4096};
 
-	byte[] lightSaver(byte[] saveArray, byte[] blockLights) {
-		int saveArrayPos = 0;
+	ByteArrayList lightSaver(ByteArrayList saveArray, byte[] blockLights) {
 		int blockLight = (blockLights[0] & 15);
 		int prevBlockLight = blockLight;
 		int curLight = blockLight;
@@ -49,47 +50,46 @@ public abstract class AnvilChunkStorageMixin {
 				switch (prev) {
 					case 0:
 						int outNibblePosOffset = ((rl > 4)?1:0) + ((rl > 20)?1:0) + ((rl > 276)?1:0);
-						saveArray[saveArrayPos] = (byte) (((rl > 4)?4:(rl & 15)) + outNibblePosOffset);
+						saveArray.add((byte) (((rl > 4)?4:(rl & 15)) + outNibblePosOffset));
 						rl -= lightOffSets[outNibblePosOffset];
-						saveArray[saveArrayPos + 1] = (byte) (rl & 15);
-						saveArray[saveArrayPos + 2] = (byte) ((rl >> 4) & 15);
-						saveArray[saveArrayPos + 3] = (byte) ((rl >> 8) & 15);
-						saveArrayPos += outNibblePosOffset + 1;
+						if(outNibblePosOffset > 0) {
+							saveArray.add((byte) (rl & 15));
+							if(outNibblePosOffset > 1) {
+								saveArray.add((byte) ((rl >> 4) & 15));
+								if(outNibblePosOffset > 2) {
+									saveArray.add((byte) ((rl >> 8) & 15));
+
+								}
+							}
+						}
 						break;
 					case -1:
-						saveArray[saveArrayPos] = 8;
-						saveArray[saveArrayPos + 1] = (byte) rl;
-						saveArrayPos += 2;
+						saveArray.add((byte) 8);
+						saveArray.add((byte) rl);
 						break;
 					case 1:
-						saveArray[saveArrayPos] = 9;
-						saveArray[saveArrayPos + 1] = (byte) rl;
-						saveArrayPos += 2;
+						saveArray.add((byte) 9);
+						saveArray.add((byte) rl);
 						break;
 					case -3:
-						saveArray[saveArrayPos] = 10;
-						saveArray[saveArrayPos + 1] = (byte) rl;
-						saveArrayPos += 2;
+						saveArray.add((byte) 10);
+						saveArray.add((byte) rl);
 						break;
 					case 3:
-						saveArray[saveArrayPos] = 11;
-						saveArray[saveArrayPos + 1] = (byte) rl;
-						saveArrayPos += 2;
+						saveArray.add((byte) 11);
+						saveArray.add((byte) rl);
 						break;
 					default:
 						switch (curLight) {
 							case 15:
-								saveArray[saveArrayPos] = 12;
-								saveArrayPos += 1;
+								saveArray.add((byte) 12);
 								break;
 							case 0:
-								saveArray[saveArrayPos] = 13;
-								saveArrayPos += 1;
+								saveArray.add((byte) 13);
 								break;
 							default:
-								saveArray[saveArrayPos] = 14;
-								saveArray[saveArrayPos + 1] = (byte) curLight;
-								saveArrayPos += 2;
+								saveArray.add((byte) 14);
+								saveArray.add((byte) curLight);
 								break;
 						}
 				}
@@ -106,50 +106,56 @@ public abstract class AnvilChunkStorageMixin {
 		switch (prev) {
 			case 0:
 				int outNibblePosOffset = ((rl > 4)?1:0) + ((rl > 20)?1:0) + ((rl > 276)?1:0);
-				saveArray[saveArrayPos] = (byte) (((rl > 4)?4:(rl & 15)) + outNibblePosOffset);
+				saveArray.add((byte) (((rl > 4)?4:(rl & 15)) + outNibblePosOffset));
 				rl -= lightOffSets[outNibblePosOffset];
-				saveArray[saveArrayPos + 1] = (byte) (rl & 15);
-				saveArray[saveArrayPos + 2] = (byte) ((rl >> 4) & 15);
-				saveArray[saveArrayPos + 3] = (byte) ((rl >> 8) & 15);
+				if(outNibblePosOffset > 0) {
+					saveArray.add((byte) (rl & 15));
+					if(outNibblePosOffset > 1) {
+						saveArray.add((byte) ((rl >> 4) & 15));
+						if(outNibblePosOffset > 2) {
+							saveArray.add((byte) ((rl >> 8) & 15));
+
+						}
+					}
+				}
 				break;
 			case -1:
-				saveArray[saveArrayPos] = 8;
-				saveArray[saveArrayPos + 1] = (byte) rl;
+				saveArray.add((byte) 8);
+				saveArray.add((byte) rl);
 				break;
 			case 1:
-				saveArray[saveArrayPos] = 9;
-				saveArray[saveArrayPos + 1] = (byte) rl;
+				saveArray.add((byte) 9);
+				saveArray.add((byte) rl);
 				break;
 			case -3:
-				saveArray[saveArrayPos] = 10;
-				saveArray[saveArrayPos + 1] = (byte) rl;
+				saveArray.add((byte) 10);
+				saveArray.add((byte) rl);
 				break;
 			case 3:
-				saveArray[saveArrayPos] = 11;
-				saveArray[saveArrayPos + 1] = (byte) rl;
+				saveArray.add((byte) 11);
+				saveArray.add((byte) rl);
 				break;
 			default:
 				switch (curLight) {
 					case 15:
-						saveArray[saveArrayPos] = 12;
+						saveArray.add((byte) 12);
 						break;
 					case 0:
-						saveArray[saveArrayPos] = 13;
+						saveArray.add((byte) 13);
 						break;
 					default:
-						saveArray[saveArrayPos] = 14;
-						saveArray[saveArrayPos + 1] = (byte) curLight;
+						saveArray.add((byte) 14);
+						saveArray.add((byte) curLight);
 						break;
 				}
 		}
 		return saveArray;
 	}
 
-	byte[] lightLoader(byte[] inNibbles) {
+	ornitheCubicChunksMod.loadReturns lightLoader(ByteArrayFIFOQueue inNibbles) {
 		int rl = 0;
 		byte[] lightLevels = new byte[2048];
 		int currentBlockLight = 0;
-		int inArrayPos = 0;
 		int currentChange = 0;
 		for (int pos = 0; pos < 4096; pos++) {
 			int checkPos = ((pos & 256)!=0)?pos^240:pos;
@@ -157,50 +163,47 @@ public abstract class AnvilChunkStorageMixin {
 			if (rl != 0) {
 				rl -= 1;
 			} else {
-				switch (inNibbles[inArrayPos]) {
+				byte nibble = inNibbles.dequeueByte();
+				switch (nibble) {
 					case 8:
-						rl = inNibbles[inArrayPos + 1];
-						inArrayPos += 2;
+						rl = inNibbles.dequeueByte();
 						currentChange = -1;
 						break;
 					case 9:
-						rl = inNibbles[inArrayPos + 1];
-						inArrayPos += 2;
+						rl = inNibbles.dequeueByte();
 						currentChange = 1;
 						break;
 					case 10:
-						rl = inNibbles[inArrayPos + 1];
-						inArrayPos += 2;
+						rl = inNibbles.dequeueByte();
 						currentChange = -3;
 						break;
 					case 11:
-						rl = inNibbles[inArrayPos + 1];
-						inArrayPos += 2;
+						rl = inNibbles.dequeueByte();
 						currentChange = 3;
 						break;
 					case 12:
-						inArrayPos += 1;
 						currentBlockLight = 15;
 						currentChange = 0;
 						break;
 					case 13:
-						inArrayPos += 1;
 						currentBlockLight = 0;
 						currentChange = 0;
 						break;
 					case 14:
-						currentBlockLight = inNibbles[inArrayPos + 1];
-						inArrayPos += 2;
+						currentBlockLight = inNibbles.dequeueByte();
 						currentChange = 0;
 						break;
 					default:
-						if (inNibbles[inArrayPos] > 4) {
-							int num = inNibbles[inArrayPos] - 4;
-							rl = inNibbles[inArrayPos + 1] + (num > 1 ? inNibbles[inArrayPos + 2] << 4 : 0) + (num > 2 ? inNibbles[inArrayPos + 3] << 8 : 0) + lightOffSets[num];
-							inArrayPos += num + 1;
+						if (nibble > 4) {
+							rl = inNibbles.dequeueByte() + lightOffSets[nibble - 4];
+							if(nibble > 5) {
+								rl += inNibbles.dequeueByte() << 4;
+								if(nibble > 6) {
+									rl += inNibbles.dequeueByte() << 8;
+								}
+							}
 						} else {
-							rl = inNibbles[inArrayPos];
-							inArrayPos += 1;
+							rl = nibble;
 						}
 						currentChange = 0;
 						break;
@@ -210,7 +213,10 @@ public abstract class AnvilChunkStorageMixin {
 			boolean even = ((checkPos & 1) == 0);
 			lightLevels[checkPos >> 1] = (byte) (even?(lightLevels[checkPos >> 1] & 240 | currentBlockLight & 15):(lightLevels[checkPos >> 1] & 15 | (currentBlockLight & 15) << 4));
 		}
-		return lightLevels;
+		ornitheCubicChunksMod.loadReturns returns = new ornitheCubicChunksMod.loadReturns();
+		returns.outputs = lightLevels;
+		returns.inputs = inNibbles;
+		return returns;
 	}
 
 	/**
@@ -248,21 +254,20 @@ public abstract class AnvilChunkStorageMixin {
 			int palleteSize = 0;
 			int palleteNibbleSize = 1;
 
-			byte[] outNibbleArray = new byte[8192];
-			int outNibblePos = 0;
-
 			int palletePos;
-			int outNibblePosOffset;
+			int runLenghSize;
+
+			ByteArrayList outputs = new ByteArrayList();
+
 
 			for (int pos = 0; pos < 4096; pos++) {
 				if (prevBlock != blocks[pos]) {
 					if (!(pallete.containsKey(prevBlock))) {
-						outNibbleArray[outNibblePos] = 0;
-						outNibbleArray[outNibblePos + 1] = (byte) (((prevBlock) >> 12) & 15);
-						outNibbleArray[outNibblePos + 2] = (byte) (((prevBlock) >> 8) & 15);
-						outNibbleArray[outNibblePos + 3] = (byte) (((prevBlock) >> 4) & 15);
-						outNibbleArray[outNibblePos + 4] = (byte) ((prevBlock) & 15);
-						outNibblePos += 5;
+						outputs.add((byte) 0);
+						outputs.add((byte) (((prevBlock) >> 12) & 15));
+						outputs.add((byte) (((prevBlock) >> 8) & 15));
+						outputs.add((byte) (((prevBlock) >> 4) & 15));
+						outputs.add((byte) ((prevBlock) & 15));
 						pallete.put(prevBlock, palleteSize);
 						palletePos = palleteSize;
 						palleteSize += 1;
@@ -270,18 +275,25 @@ public abstract class AnvilChunkStorageMixin {
 					} else {
 						palletePos = pallete.get(prevBlock);
 					}
-					outNibblePosOffset = ((runLength > 12)?1:0) + ((runLength > 28)?1:0) + ((runLength > 285)?1:0);
-					outNibbleArray[outNibblePos] = (byte) (((runLength > 12)?12:(runLength & 15)) + outNibblePosOffset);
-					runLength -= offSets[outNibblePosOffset];
-					outNibbleArray[outNibblePos + 1] = (byte) ((runLength) & 15);
-					outNibbleArray[outNibblePos + 2] = (byte) (((runLength) >> 4) & 15);
-					outNibbleArray[outNibblePos + 3] = (byte) (((runLength) >> 8) & 15);
-					outNibblePos += outNibblePosOffset + 1;
-					outNibbleArray[outNibblePos] = (byte) (palletePos & 15);
-					outNibbleArray[outNibblePos + 1] = (byte) (((palletePos) >> 4) & 15);
-					outNibbleArray[outNibblePos + 2] = (byte) (((palletePos) >> 8) & 15);
-					outNibblePos += palleteNibbleSize;
-
+					runLenghSize = ((runLength > 12)?1:0) + ((runLength > 28)?1:0) + ((runLength > 284)?1:0);
+					outputs.add((byte) (((runLength > 12)?12:(runLength & 15)) + runLenghSize));
+					runLength -= offSets[runLenghSize];
+					if(runLenghSize > 0) {
+						outputs.add((byte) (runLength & 15));
+						if(runLenghSize > 1) {
+							outputs.add((byte) ((runLength >> 4) & 15));
+							if(runLenghSize > 2) {
+								outputs.add((byte) ((runLength >> 8) & 15));
+							}
+						}
+					}
+					outputs.add((byte) (palletePos & 15));
+					if(palleteNibbleSize > 1) {
+						outputs.add((byte) ((palletePos >> 4) & 15));
+						if(palleteNibbleSize > 2) {
+							outputs.add((byte) ((palletePos >> 8) & 15));
+						}
+					}
 					runLength = 1;
 					prevBlock = blocks[pos];
 					continue;
@@ -289,12 +301,11 @@ public abstract class AnvilChunkStorageMixin {
 				runLength += 1;
 			}
 			if (!(pallete.containsKey(prevBlock))) {
-				outNibbleArray[outNibblePos] = 0;
-				outNibbleArray[outNibblePos + 1] = (byte) (((prevBlock) >> 12) & 15);
-				outNibbleArray[outNibblePos + 2] = (byte) (((prevBlock) >> 8) & 15);
-				outNibbleArray[outNibblePos + 3] = (byte) (((prevBlock) >> 4) & 15);
-				outNibbleArray[outNibblePos + 4] = (byte) ((prevBlock) & 15);
-				outNibblePos += 5;
+				outputs.add((byte) 0);
+				outputs.add((byte) (((prevBlock) >> 12) & 15));
+				outputs.add((byte) (((prevBlock) >> 8) & 15));
+				outputs.add((byte) (((prevBlock) >> 4) & 15));
+				outputs.add((byte) ((prevBlock) & 15));
 				pallete.put(prevBlock, palleteSize);
 				palletePos = palleteSize;
 				palleteSize += 1;
@@ -302,40 +313,49 @@ public abstract class AnvilChunkStorageMixin {
 			} else {
 				palletePos = pallete.get(prevBlock);
 			}
-			outNibblePosOffset = ((runLength > 12)?1:0) + ((runLength > 28)?1:0) + ((runLength > 285)?1:0);
-			outNibbleArray[outNibblePos] = (byte) (((runLength > 12)?12:(runLength & 15)) + outNibblePosOffset);
-			runLength -= offSets[outNibblePosOffset];
-			outNibbleArray[outNibblePos + 1] = (byte) ((runLength) & 15);
-			outNibbleArray[outNibblePos + 2] = (byte) (((runLength) >> 4) & 15);
-			outNibbleArray[outNibblePos + 3] = (byte) (((runLength) >> 8) & 15);
-			outNibblePos += outNibblePosOffset + 1;
-			outNibbleArray[outNibblePos] = (byte) (palletePos & 15);
-			outNibbleArray[outNibblePos + 1] = (byte) (((palletePos) >> 4) & 15);
-			outNibbleArray[outNibblePos + 2] = (byte) (((palletePos) >> 8) & 15);
-			outNibblePos += palleteNibbleSize;
+			runLenghSize = ((runLength > 12)?1:0) + ((runLength > 28)?1:0) + ((runLength > 284)?1:0);
+			outputs.add((byte) (((runLength > 12)?12:(runLength & 15)) + runLenghSize));
+			runLength -= offSets[runLenghSize];
+			if(runLenghSize > 0) {
+				outputs.add((byte) (runLength & 15));
+				if(runLenghSize > 1) {
+					outputs.add((byte) ((runLength >> 4) & 15));
+					if(runLenghSize > 2) {
+						outputs.add((byte) ((runLength >> 8) & 15));
+					}
+				}
+			}
+			outputs.add((byte) (palletePos & 15));
+			if(palleteNibbleSize > 1) {
+				outputs.add((byte) ((palletePos >> 4) & 15));
+				if(palleteNibbleSize > 2) {
+					outputs.add((byte) ((palletePos >> 8) & 15));
+				}
+			}
 
-			byte[] output = new byte[1 + (outNibblePos >> 1)];
+			//start of light level saving
+			ByteArrayList lightsOut = new ByteArrayList();
+			outputs = lightSaver(outputs, worldChunkSection.getBlockLightStorage().getData());
+
+			if (bl) {
+				outputs = lightSaver(outputs, worldChunkSection.getSkyLightStorage().getData());
+			}
+
+			if(outputs.size() % 2 == 1) outputs.add((byte) 0);
+			byte[] output = new byte[(outputs.size() >> 1)];
 			int nibble = 0;
-			for(int outputPos = 0; outputPos < (1 + (outNibblePos >> 1)); outputPos++){
-				output[outputPos] = (byte) ((outNibbleArray[nibble] << 4) + (outNibbleArray[nibble + 1]));
+			for(int outputPos = 0; outputPos < (outputs.size() >> 1); outputPos++){
+				output[outputPos] = (byte) ((outputs.getByte(nibble) << 4) + (outputs.getByte(nibble + 1)));
 				nibble += 2;
 			}
+			outputs.clear();
 
 			subChunkNbt.putByteArray("nibbles", output);
 
-			//start of light level saving
-			byte[] blockLights = worldChunkSection.getBlockLightStorage().getData();
-			byte[] blockLightsOut = new byte[8000];
-			subChunkNbt.putByteArray("BlockLight", lightSaver(blockLightsOut, blockLights));
-
-			if (bl) {
-				byte[] skyLights = worldChunkSection.getSkyLightStorage().getData();
-				byte[] skyLightsOut = new byte[8000];
-				subChunkNbt.putByteArray("SkyLight", lightSaver(skyLightsOut, skyLights));
-			}
-
 			subChunks.add(subChunkNbt);
 		}
+
+
 
 		nbtCompound.put("Sections", subChunks);
 		nbtCompound.putByteArray("Biomes", worldChunk.getBiomes());
@@ -411,15 +431,12 @@ public abstract class AnvilChunkStorageMixin {
 
 			//start of block uncompressing and loading
 			byte[] input = nbtCompound2.getByteArray("nibbles");
-			byte[] nibbles = new byte[input.length << 2];
-			int nibblePos = 0;
+			ByteArrayFIFOQueue inNibbles = new ByteArrayFIFOQueue();
 			for (byte nibble : input) {
-				nibbles[nibblePos] = (byte) ((nibble >> 4) & 15);
-				nibbles[nibblePos + 1] = (byte) (nibble & 15);
-				nibblePos += 2;
+				inNibbles.enqueue((byte) ((nibble >> 4) & 15));
+				inNibbles.enqueue((byte) (nibble & 15));
 			}
 
-			int currentNibble = 0;
 			int palleteSize = 0;
 			int palleteNibbleSize = 1;
 			ArrayList<Character> pallete = new ArrayList<>();
@@ -431,29 +448,47 @@ public abstract class AnvilChunkStorageMixin {
 
 			for(int blockArrayPos = 0; blockArrayPos < 4096; blockArrayPos++) {
 				if (currentRunLength == 0) {
-					if (nibbles[currentNibble] == 0) {
-						pallete.add((char) ((nibbles[currentNibble + 1] << 12) + (nibbles[currentNibble + 2] << 8) + (nibbles[currentNibble + 3] << 4) + nibbles[currentNibble + 4]));
-						currentNibble += 5;
+					int nibble = inNibbles.dequeueByte();
+					if (nibble == 0) {
+						pallete.add((char) ((inNibbles.dequeueByte() << 12) + (inNibbles.dequeueByte() << 8) + (inNibbles.dequeueByte() << 4) + inNibbles.dequeueByte()));
 						palleteSize += 1;
 						palleteNibbleSize += (palleteSize > pow16[palleteNibbleSize])?1:0;
+						nibble = inNibbles.dequeueByte();
 					}
-					int num = (nibbles[currentNibble] > 12?1:0) + (nibbles[currentNibble] > 13?1:0) + (nibbles[currentNibble] > 14?1:0);
-					currentRunLength = num == 0 ?nibbles[currentNibble]: nibbles[currentNibble + 1] + (num > 1?nibbles[currentNibble + 2] << 4:0) + (num > 2?nibbles[currentNibble + 3] << 8:0) + offSets[num];
-					currentNibble += num + 1;
-					currentBlock = pallete.get(nibbles[currentNibble] + (palleteNibbleSize > 1?(nibbles[currentNibble + 1] << 4):0) + (palleteNibbleSize > 2?(nibbles[currentNibble + 2] << 8):0));
-					currentNibble += palleteNibbleSize;
+
+					if(nibble > 12) {
+						currentRunLength = inNibbles.dequeueByte() + offSets[nibble - 12];
+						if(nibble > 13) {
+							currentRunLength += inNibbles.dequeueByte() << 4;
+							if(nibble > 14) {
+								currentRunLength += inNibbles.dequeueByte() << 8;
+							}
+						}
+					} else currentRunLength = nibble;
+
+					int palletePos = inNibbles.dequeueByte();
+					if(palleteNibbleSize > 1) {
+						palletePos += inNibbles.dequeueByte() << 4;
+						if(palleteNibbleSize > 2) {
+							palletePos += inNibbles.dequeueByte() << 8;
+						}
+					}
+					currentBlock = pallete.get(palletePos);
 				}
 				currentRunLength -= 1;
 				output[blockArrayPos] = currentBlock;
 			}
 			worldChunkSection.setBlockData(output);
 
-
 			//start of light level loading
-			worldChunkSection.setBlockLightStorage(new ChunkNibbleStorage(lightLoader(nbtCompound2.getByteArray("BlockLight"))));
+
+			ornitheCubicChunksMod.loadReturns returns = lightLoader(inNibbles);
+			worldChunkSection.setBlockLightStorage(new ChunkNibbleStorage(returns.outputs));
 
 			if (bl) {
-				worldChunkSection.setSkyLightStorage(new ChunkNibbleStorage(lightLoader(nbtCompound2.getByteArray("SkyLight"))));
+				ornitheCubicChunksMod.loadReturns returns1 = lightLoader(returns.inputs);
+
+				worldChunkSection.setSkyLightStorage(new ChunkNibbleStorage(returns1.outputs));
 			}
 
 			worldChunkSection.validateBlockCounters();
