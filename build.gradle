@@ -24,7 +24,7 @@ repositories {
 dependencies {
 	minecraft libs.minecraft
 	mappings loom.layered {
-		mappings libs.feather.mappings
+		mappings variantOf(libs.feather.mappings) { classifier 'v2' }
 		//ploceus.nestedMappings(it) // remove this line if not using nests
 	}
 	implementation 'it.unimi.dsi:fastutil:8.5.11'

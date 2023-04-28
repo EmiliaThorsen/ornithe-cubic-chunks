@@ -269,29 +269,42 @@ public abstract class AnvilChunkStorageMixin {
 						outputs.add((byte) (((prevBlock) >> 4) & 15));
 						outputs.add((byte) ((prevBlock) & 15));
 						pallete.put(prevBlock, palleteSize);
-						palletePos = palleteSize;
 						palleteSize += 1;
 						palleteNibbleSize += (palleteSize > pow16[palleteNibbleSize])?1:0;
-					} else {
-						palletePos = pallete.get(prevBlock);
-					}
-					runLenghSize = ((runLength > 12)?1:0) + ((runLength > 28)?1:0) + ((runLength > 284)?1:0);
-					outputs.add((byte) (((runLength > 12)?12:(runLength & 15)) + runLenghSize));
-					runLength -= offSets[runLenghSize];
-					if(runLenghSize > 0) {
-						outputs.add((byte) (runLength & 15));
-						if(runLenghSize > 1) {
-							outputs.add((byte) ((runLength >> 4) & 15));
-							if(runLenghSize > 2) {
-								outputs.add((byte) ((runLength >> 8) & 15));
+
+						runLenghSize = ((runLength > 12)?1:0) + ((runLength > 28)?1:0) + ((runLength > 284)?1:0);
+						outputs.add((byte) (((runLength > 12)?12:(runLength & 15)) + runLenghSize));
+						runLength -= offSets[runLenghSize];
+						if(runLenghSize > 0) {
+							outputs.add((byte) (runLength & 15));
+							if(runLenghSize > 1) {
+								outputs.add((byte) ((runLength >> 4) & 15));
+								if(runLenghSize > 2) {
+									outputs.add((byte) ((runLength >> 8) & 15));
+								}
 							}
 						}
-					}
-					outputs.add((byte) (palletePos & 15));
-					if(palleteNibbleSize > 1) {
-						outputs.add((byte) ((palletePos >> 4) & 15));
-						if(palleteNibbleSize > 2) {
-							outputs.add((byte) ((palletePos >> 8) & 15));
+
+					} else {
+						runLenghSize = ((runLength > 12)?1:0) + ((runLength > 28)?1:0) + ((runLength > 284)?1:0);
+						outputs.add((byte) (((runLength > 12)?12:(runLength & 15)) + runLenghSize));
+						runLength -= offSets[runLenghSize];
+						if(runLenghSize > 0) {
+							outputs.add((byte) (runLength & 15));
+							if(runLenghSize > 1) {
+								outputs.add((byte) ((runLength >> 4) & 15));
+								if(runLenghSize > 2) {
+									outputs.add((byte) ((runLength >> 8) & 15));
+								}
+							}
+						}
+						palletePos = pallete.get(prevBlock);
+						outputs.add((byte) (palletePos & 15));
+						if(palleteNibbleSize > 1) {
+							outputs.add((byte) ((palletePos >> 4) & 15));
+							if(palleteNibbleSize > 2) {
+								outputs.add((byte) ((palletePos >> 8) & 15));
+							}
 						}
 					}
 					runLength = 1;
@@ -307,34 +320,44 @@ public abstract class AnvilChunkStorageMixin {
 				outputs.add((byte) (((prevBlock) >> 4) & 15));
 				outputs.add((byte) ((prevBlock) & 15));
 				pallete.put(prevBlock, palleteSize);
-				palletePos = palleteSize;
-				palleteSize += 1;
-				palleteNibbleSize += (palleteSize > pow16[palleteNibbleSize])?1:0;
-			} else {
-				palletePos = pallete.get(prevBlock);
-			}
-			runLenghSize = ((runLength > 12)?1:0) + ((runLength > 28)?1:0) + ((runLength > 284)?1:0);
-			outputs.add((byte) (((runLength > 12)?12:(runLength & 15)) + runLenghSize));
-			runLength -= offSets[runLenghSize];
-			if(runLenghSize > 0) {
-				outputs.add((byte) (runLength & 15));
-				if(runLenghSize > 1) {
-					outputs.add((byte) ((runLength >> 4) & 15));
-					if(runLenghSize > 2) {
-						outputs.add((byte) ((runLength >> 8) & 15));
+
+				runLenghSize = ((runLength > 12)?1:0) + ((runLength > 28)?1:0) + ((runLength > 284)?1:0);
+				outputs.add((byte) (((runLength > 12)?12:(runLength & 15)) + runLenghSize));
+				runLength -= offSets[runLenghSize];
+				if(runLenghSize > 0) {
+					outputs.add((byte) (runLength & 15));
+					if(runLenghSize > 1) {
+						outputs.add((byte) ((runLength >> 4) & 15));
+						if(runLenghSize > 2) {
+							outputs.add((byte) ((runLength >> 8) & 15));
+						}
 					}
 				}
-			}
-			outputs.add((byte) (palletePos & 15));
-			if(palleteNibbleSize > 1) {
-				outputs.add((byte) ((palletePos >> 4) & 15));
-				if(palleteNibbleSize > 2) {
-					outputs.add((byte) ((palletePos >> 8) & 15));
+
+			} else {
+				runLenghSize = ((runLength > 12)?1:0) + ((runLength > 28)?1:0) + ((runLength > 284)?1:0);
+				outputs.add((byte) (((runLength > 12)?12:(runLength & 15)) + runLenghSize));
+				runLength -= offSets[runLenghSize];
+				if(runLenghSize > 0) {
+					outputs.add((byte) (runLength & 15));
+					if(runLenghSize > 1) {
+						outputs.add((byte) ((runLength >> 4) & 15));
+						if(runLenghSize > 2) {
+							outputs.add((byte) ((runLength >> 8) & 15));
+						}
+					}
+				}
+				palletePos = pallete.get(prevBlock);
+				outputs.add((byte) (palletePos & 15));
+				if(palleteNibbleSize > 1) {
+					outputs.add((byte) ((palletePos >> 4) & 15));
+					if(palleteNibbleSize > 2) {
+						outputs.add((byte) ((palletePos >> 8) & 15));
+					}
 				}
 			}
 
 			//start of light level saving
-			ByteArrayList lightsOut = new ByteArrayList();
 			outputs = lightSaver(outputs, worldChunkSection.getBlockLightStorage().getData());
 
 			if (bl) {
@@ -450,30 +473,41 @@ public abstract class AnvilChunkStorageMixin {
 				if (currentRunLength == 0) {
 					int nibble = inNibbles.dequeueByte();
 					if (nibble == 0) {
-						pallete.add((char) ((inNibbles.dequeueByte() << 12) + (inNibbles.dequeueByte() << 8) + (inNibbles.dequeueByte() << 4) + inNibbles.dequeueByte()));
+						char block = (char) ((inNibbles.dequeueByte() << 12) + (inNibbles.dequeueByte() << 8) + (inNibbles.dequeueByte() << 4) + inNibbles.dequeueByte());
+						pallete.add(block);
 						palleteSize += 1;
 						palleteNibbleSize += (palleteSize > pow16[palleteNibbleSize])?1:0;
-						nibble = inNibbles.dequeueByte();
-					}
 
-					if(nibble > 12) {
-						currentRunLength = inNibbles.dequeueByte() + offSets[nibble - 12];
-						if(nibble > 13) {
-							currentRunLength += inNibbles.dequeueByte() << 4;
-							if(nibble > 14) {
-								currentRunLength += inNibbles.dequeueByte() << 8;
+						nibble = inNibbles.dequeueByte();
+						if(nibble > 12) {
+							currentRunLength = inNibbles.dequeueByte() + offSets[nibble - 12];
+							if(nibble > 13) {
+								currentRunLength += inNibbles.dequeueByte() << 4;
+								if(nibble > 14) {
+									currentRunLength += inNibbles.dequeueByte() << 8;
+								}
+							}
+						} else currentRunLength = nibble;
+						currentBlock = block;
+					} else {
+						if(nibble > 12) {
+							currentRunLength = inNibbles.dequeueByte() + offSets[nibble - 12];
+							if(nibble > 13) {
+								currentRunLength += inNibbles.dequeueByte() << 4;
+								if(nibble > 14) {
+									currentRunLength += inNibbles.dequeueByte() << 8;
+								}
+							}
+						} else currentRunLength = nibble;
+						int palletePos = inNibbles.dequeueByte();
+						if(palleteNibbleSize > 1) {
+							palletePos += inNibbles.dequeueByte() << 4;
+							if(palleteNibbleSize > 2) {
+								palletePos += inNibbles.dequeueByte() << 8;
 							}
 						}
-					} else currentRunLength = nibble;
-
-					int palletePos = inNibbles.dequeueByte();
-					if(palleteNibbleSize > 1) {
-						palletePos += inNibbles.dequeueByte() << 4;
-						if(palleteNibbleSize > 2) {
-							palletePos += inNibbles.dequeueByte() << 8;
-						}
+						currentBlock = pallete.get(palletePos);
 					}
-					currentBlock = pallete.get(palletePos);
 				}
 				currentRunLength -= 1;
 				output[blockArrayPos] = currentBlock;
